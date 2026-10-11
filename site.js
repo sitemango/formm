@@ -59,6 +59,13 @@
     return String(label).replace(/^गट\s*[०-९\d]+\s*[-–—]\s*/, '');
   }
 
+  /* "गट ३ — इयत्ता ५ वी ते ७ वी" — number + range, for registration and the explorer */
+  function groupDisplay(c, group) {
+    if (!group) return '—';
+    var index = (c.groups || []).indexOf(group);
+    return 'गट ' + toMarathi(index + 1) + ' — ' + stripGroupPrefix(group.label);
+  }
+
   function groupFor(c, standardIndex) {
     if (!c.groups || !c.groups.length) return null;
     for (var i = 0; i < c.groups.length; i++) {
@@ -433,7 +440,8 @@
         '<p class="ccard__desc">' + escapeHtml(c.blurb) + '</p>' +
         '<span class="ccard__meta">' +
           (c.eligibility
-            ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' + toMarathi(c.groups.length) + ' गट'
+            ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' +
+              toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
             : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>') +
         '</span>' +
         '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
@@ -451,16 +459,18 @@
     if (!host) return;
 
     host.innerHTML = C.filter(function (c) { return c.eligibility; }).map(function (c) {
-      var chips = c.groups.map(function (g) {
-        return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (c.groups.indexOf(g) + 1) + '</span> ' +
+      var chips = c.groups.map(function (g, gi) {
+        return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
           escapeHtml(stripGroupPrefix(g.label)) + '</li>';
       }).join('');
       return '' +
         '<article class="erow reveal" data-accent="' + c.accent + '">' +
           '<div class="erow__head">' +
             '<span class="erow__icon">' + icon(c.icon) + '</span>' +
-            '<h3 class="erow__title"><a href="' + c.page + '">' + escapeHtml(c.name) + '</a></h3>' +
-            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + '</strong></p>' +
+            '<h3 class="erow__title"><a href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
+              (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') + '</h3>' +
+            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + '</strong>' +
+              (c.isTeam ? ' · संघ स्पर्धा' : '') + '</p>' +
           '</div>' +
           '<ul class="erow__chips">' + chips + '</ul>' +
         '</article>';
@@ -493,7 +503,7 @@
       var index = Number(select.value);
       if (hint) hint.innerHTML = 'निवडलेली इयत्ता: <strong>' + escapeHtml(standardLabel(index)) + '</strong>';
 
-      var list = eligibleFor(index).map(function (c) {
+      var list = eligibleFor(index).filter(function (c) { return !c.isTeam; }).map(function (c) {
         var g = groupFor(c, index);
         return '' +
           '<li class="ex-item" data-accent="' + c.accent + '">' +
@@ -507,21 +517,26 @@
           '</li>';
       }).join('');
 
-      var online = onlineCompetitions().map(function (c) {
+      var online = eligibleFor(index).filter(function (c) { return !!c.isTeam; }).map(function (c) {
+        var tg = groupFor(c, index);
         return '<li class="ex-item ex-item--online" data-accent="' + c.accent + '">' +
           '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
           '<span class="ex-item__body">' +
             '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
-            '<span class="ex-item__group">ऑनलाइन स्पर्धा · पात्रता निश्चित होणे बाकी</span>' +
+            '<span class="ex-item__group">गट: <strong>' + escapeHtml(groupDisplay(c, tg)) +
+              '</strong> · संघ स्पर्धा</span>' +
           '</span>' +
           '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
         '</li>';
       }).join('');
 
       results.innerHTML =
-        '<div class="ex-group"><p class="ex-group__title">इयत्तेनुसार उपलब्ध स्पर्धा (' +
-          toMarathi(eligibleFor(index).length) + ')</p><ul class="ex-list">' + list + '</ul></div>' +
-        '<div class="ex-group"><p class="ex-group__title">ऑनलाइन स्पर्धा</p><ul class="ex-list">' + online + '</ul></div>';
+        '<div class="ex-group"><p class="ex-group__title">वैयक्तिक स्पर्धा (' +
+          toMarathi(eligibleFor(index).filter(function (c) { return !c.isTeam; }).length) +
+          ')</p><ul class="ex-list">' + list + '</ul></div>' +
+        '<div class="ex-group"><p class="ex-group__title">संघ स्पर्धा — ऑनलाइन (' +
+          toMarathi(eligibleFor(index).filter(function (c) { return !!c.isTeam; }).length) +
+          ')</p><ul class="ex-list">' + online + '</ul></div>';
     });
 
     empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
@@ -536,7 +551,8 @@
         '<span class="online-card__body">' +
           '<span class="online-card__name">' + escapeHtml(c.name) +
             ' <span class="online-card__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span></span>' +
-          '<span class="online-card__note">' + escapeHtml(UI.pendingNotice) + '</span>' +
+          '<span class="online-card__note">ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
+            ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी</span>' +
         '</span>' +
         '<span class="online-card__go">' + icon('#i-arrow') + '</span>' +
       '</a>';
@@ -558,6 +574,18 @@
   }
 
   /* ==================================================== COMPETITION PAGES */
+  function fact(k, v) {
+    return '<li><span class="fact__k">' + escapeHtml(k) + '</span>' +
+           '<span class="fact__v">' + escapeHtml(v) + '</span></li>';
+  }
+
+  function rulesList(items, extraClass) {
+    if (!items || !items.length) return '';
+    return '<ul class="rules ' + (extraClass || '') + '">' + items.map(function (t) {
+      return '<li>' + icon('#i-check') + '<span>' + escapeHtml(t) + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
   function renderCompetitionPage() {
     var host = qs('#competitionPage');
     var id = document.body.getAttribute('data-competition');
@@ -566,61 +594,169 @@
 
     var index = C.indexOf(c);
     var isOnline = c.mode === 'online';
+    var isTeam = !!c.isTeam;
 
     /* --- facts ------------------------------------------------------------ */
     var facts = [];
-    facts.push('<li><span class="fact__k">पात्रता</span><span class="fact__v">' +
-      (c.eligibility ? escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) : 'निश्चित होणे बाकी') + '</span></li>');
-    if (c.groups.length) {
-      facts.push('<li><span class="fact__k">गट</span><span class="fact__v">' + toMarathi(c.groups.length) + ' (इयत्तेनुसार)</span></li>');
-      facts.push('<li><span class="fact__k">एकूण विषय</span><span class="fact__v">' + toMarathi(topicCount(c)) + '</span></li>');
-    } else {
-      facts.push('<li><span class="fact__k">गट</span><span class="fact__v">निश्चित होणे बाकी</span></li>');
+    facts.push(fact('पात्रता', c.eligibility ? rangeText(c.eligibility.from, c.eligibility.to) : 'निश्चित होणे बाकी'));
+    facts.push(fact('गट', c.groups.length ? toMarathi(c.groups.length) + ' (इयत्तेनुसार)' : 'निश्चित होणे बाकी'));
+    if (isTeam) {
+      facts.push(fact('कालावधी', c.duration));
+      facts.push(fact('किमान सहभागी', toMarathi(c.teamMin)));
+    } else if (c.groups.length) {
+      facts.push(fact('एकूण विषय', toMarathi(topicCount(c))));
     }
-    facts.push('<li><span class="fact__k">स्वरूप</span><span class="fact__v">' +
-      (isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा') + '</span></li>');
+    facts.push(fact('स्वरूप', isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा'));
 
-    /* --- groups + topics -------------------------------------------------- */
+    /* --- eligibility ------------------------------------------------------- */
+    var eligHtml = '';
+    if (c.eligibility) {
+      eligHtml =
+        '<section class="cp-block" id="eligibility-detail">' +
+          '<h2 class="cp-block__title">पात्रता</h2>' +
+          '<p class="cp-block__lead">ही स्पर्धा <strong>' +
+            escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) +
+          '</strong> मधील विद्यार्थ्यांसाठी खुली आहे. ' +
+          (isTeam
+            ? 'सहभागींचे वर्गीकरण खालील चार गटांत केले जाईल. ' + escapeHtml(c.eligibilityNote || '')
+            : 'नोंदणी करताना विद्यार्थ्याची इयत्ता निवडल्यानंतर योग्य गट आपोआप निश्चित होतो.') +
+          '</p>' +
+        '</section>';
+    }
+
+    /* --- groups (and topics, where the brief supplies them) ---------------- */
     var groupsHtml = '';
     if (c.groups.length) {
-      groupsHtml = '<section class="cp-block" id="topics">' +
-        '<h2 class="cp-block__title">गट आणि विषय</h2>' +
-        '<p class="cp-block__lead">विद्यार्थ्याच्या इयत्तेनुसार गट आपोआप निश्चित होतो. ' +
-          'खालील यादीत आपल्या गटाचे विषय पहा.</p>' +
-        '<div class="groups">' +
-        c.groups.map(function (g, gi) {
-          var topics = g.topics.map(function (t) {
-            return '<li>' + icon('#i-check') + '<span>' + escapeHtml(t) + '</span></li>';
-          }).join('');
-          return '' +
-            '<article class="group">' +
+      groupsHtml =
+        '<section class="cp-block" id="groups">' +
+          '<h2 class="cp-block__title">' + (isTeam ? 'गट' : 'गट आणि विषय') + '</h2>' +
+          '<p class="cp-block__lead">' + (isTeam
+            ? 'सहभागींचे वर्गीकरण खालीलप्रमाणे करण्यात येईल.'
+            : 'विद्यार्थ्याच्या इयत्तेनुसार गट आपोआप निश्चित होतो. खालील यादीत आपल्या गटाचे विषय पहा.') + '</p>' +
+          '<div class="groups">' +
+          c.groups.map(function (g, gi) {
+            var topics = (g.topics && g.topics.length)
+              ? '<ul class="topics">' + g.topics.map(function (t) {
+                  return '<li>' + icon('#i-check') + '<span>' + escapeHtml(t) + '</span></li>';
+                }).join('') + '</ul>'
+              : '';
+            return '<article class="group">' +
               '<h3 class="group__title">' +
                 '<span class="group__badge">गट ' + toMarathi(gi + 1) + '</span>' +
                 '<span class="group__label">' + escapeHtml(stripGroupPrefix(g.label)) + '</span>' +
                 (g.note ? '<span class="group__note">' + escapeHtml(g.note) + '</span>' : '') +
-              '</h3>' +
-              '<ul class="topics">' + topics + '</ul>' +
+              '</h3>' + topics +
             '</article>';
-        }).join('') +
-        '</div></section>';
+          }).join('') +
+          '</div>' +
+          (isTeam
+            ? '<p class="cp-note">' + icon('#i-info') +
+              '<span>या स्पर्धेसाठी विषयांची यादी दिलेली नाही; संघाने आपल्या सादरीकरणाचा विषय स्वतः निवडावा.</span></p>'
+            : '') +
+        '</section>';
     }
 
-    /* --- pending notice for the online events ----------------------------- */
+    /* --- how to register (process, not competition rules) ------------------ */
+    var steps = isTeam
+      ? ['नोंदणी पृष्ठावर आपली (संघप्रमुखाची) माहिती व इयत्ता भरा.',
+         'संघ स्पर्धांमधून ही स्पर्धा निवडा — आपला गट इयत्तेनुसार आपोआप निश्चित होईल.',
+         'संघप्रमुखाचे नाव व किमान ' + toMarathi(c.teamMin) + ' सहभागी विद्यार्थ्यांची नावे आणि इयत्ता भरा.',
+         'माहिती तपासून नोंदणी पाठवा.']
+      : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
+         'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
+         'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.',
+         'माहिती तपासून नोंदणी पाठवा.'];
+
+    var processHtml =
+      '<section class="cp-block">' +
+        '<h2 class="cp-block__title">नोंदणी प्रक्रिया</h2>' +
+        '<ol class="steps">' +
+        steps.map(function (s, i) {
+          return '<li><span class="steps__no english-text">' + (i + 1) + '</span>' + escapeHtml(s) + '</li>';
+        }).join('') +
+        '</ol>' +
+        /* When the page carries its own "still to be announced" list, that note
+           covers this ground — don't print the same sentence twice. */
+        ((c.notes && c.notes.length) ? '' :
+        '<p class="cp-note">' + icon('#i-info') + '<span>' +
+          (isTeam
+            ? 'व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.'
+            : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
+        '</span></p>') +
+      '</section>';
+
+    /* --- submission format ------------------------------------------------- */
+    var formatHtml = '';
+    if (c.format && c.format.length) {
+      var formatItems = c.format.slice();
+      if (c.duration) formatItems.push('सादरीकरणाचा कालावधी ' + escapeHtml(c.duration) + ' असेल.');
+      formatHtml =
+        '<section class="cp-block" id="format">' +
+          '<h2 class="cp-block__title">सादरीकरणाचे स्वरूप व कालावधी</h2>' +
+          rulesList(formatItems) +
+        '</section>';
+    }
+
+    /* --- team size --------------------------------------------------------- */
+    var teamHtml = '';
+    if (c.teamRules && c.teamRules.length) {
+      teamHtml =
+        '<section class="cp-block" id="team">' +
+          '<h2 class="cp-block__title">सहभागींची संख्या</h2>' +
+          rulesList(c.teamRules) +
+        '</section>';
+    }
+
+    /* --- judging ------------------------------------------------------------ */
+    var criteriaHtml = '';
+    if (c.criteria && c.criteria.length) {
+      criteriaHtml =
+        '<section class="cp-block" id="criteria">' +
+          '<h2 class="cp-block__title">निर्णायक निकष व मूल्यमापन पद्धत</h2>' +
+          '<p class="cp-block__lead">प्रत्येक सादरीकरणाचे मूल्यमापन १०० गुणांमधून करण्यात येईल.</p>' +
+          '<table class="criteria">' +
+            '<thead><tr><th scope="col">मूल्यमापन निकष</th><th scope="col">गुण</th></tr></thead>' +
+            '<tbody>' +
+            c.criteria.map(function (r) {
+              return '<tr' + (r.total ? ' class="criteria__total"' : '') + '>' +
+                '<th scope="row">' + escapeHtml(r.label) + '</th>' +
+                '<td>' + escapeHtml(r.marks) + '</td></tr>';
+            }).join('') +
+            '</tbody>' +
+          '</table>' +
+          rulesList(c.judgingNotes, 'rules--plain') +
+        '</section>';
+    }
+
+    /* --- still to be announced --------------------------------------------- */
+    var notesHtml = '';
+    if (c.notes && c.notes.length) {
+      notesHtml =
+        '<section class="cp-block" id="notes">' +
+          '<div class="notice notice--info">' +
+            '<span class="notice__icon">' + icon('#i-info') + '</span>' +
+            '<div class="notice__body">' +
+              '<p class="notice__lead">अद्याप जाहीर होणे बाकी</p>' +
+              '<ul class="notice__list">' + c.notes.map(function (n) {
+                return '<li>' + icon('#i-check') + '<span>' + escapeHtml(n) + '</span></li>';
+              }).join('') + '</ul>' +
+              '<p class="notice__foot">वरील तपशील आयोजकांकडून निश्चित झाल्यानंतर या पृष्ठावर प्रसिद्ध केले जातील.</p>' +
+            '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    /* --- keep the generic notice for any future unconfirmed competition ---- */
     var pendingHtml = '';
     if (c.pending) {
-      pendingHtml = '' +
+      pendingHtml =
         '<section class="cp-block" id="status">' +
           '<h2 class="cp-block__title">स्पर्धेची सद्यस्थिती</h2>' +
           '<div class="notice notice--pending">' +
             '<span class="notice__icon">' + icon('#i-info') + '</span>' +
             '<div class="notice__body">' +
               '<p class="notice__lead">' + escapeHtml(UI.pendingNotice) + '</p>' +
-              (c.pendingItems && c.pendingItems.length
-                ? '<p class="notice__label">खालील तपशील अद्याप जाहीर झालेले नाहीत:</p>' +
-                  '<ul class="notice__list">' + c.pendingItems.map(function (p) {
-                    return '<li>' + icon('#i-check') + '<span>' + escapeHtml(p) + '</span></li>';
-                  }).join('') + '</ul>'
-                : '') +
+              rulesList(c.pendingItems, 'rules--plain') +
               '<p class="notice__foot">वरील तपशील आयोजकांकडून निश्चित झाल्यानंतर या पृष्ठावर तसेच ' +
                 'नोंदणी पृष्ठावर आपोआप दिसतील.</p>' +
             '</div>' +
@@ -628,36 +764,7 @@
         '</section>';
     }
 
-    /* --- eligibility detail ----------------------------------------------- */
-    var eligHtml = '';
-    if (c.eligibility) {
-      eligHtml = '' +
-        '<section class="cp-block" id="eligibility-detail">' +
-          '<h2 class="cp-block__title">पात्रता</h2>' +
-          '<p class="cp-block__lead">ही स्पर्धा <strong>' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) +
-            '</strong> मधील विद्यार्थ्यांसाठी खुली आहे. नोंदणी करताना विद्यार्थ्याची इयत्ता निवडल्यानंतर ' +
-            'योग्य गट आपोआप निश्चित होतो.</p>' +
-        '</section>';
-    }
-
-    /* --- process note (never invents rules) ------------------------------- */
-    var processHtml = '';
-    if (c.groups.length) {
-      processHtml = '' +
-        '<section class="cp-block">' +
-          '<h2 class="cp-block__title">नोंदणी प्रक्रिया</h2>' +
-          '<ul class="steps">' +
-            '<li><span class="steps__no english-text">1</span>नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.</li>' +
-            '<li><span class="steps__no english-text">2</span>इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.</li>' +
-            '<li><span class="steps__no english-text">3</span>आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.</li>' +
-            '<li><span class="steps__no english-text">4</span>माहिती तपासून नोंदणी पाठवा.</li>' +
-          '</ul>' +
-          '<p class="cp-note">' + icon('#i-info') +
-            '<span>स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.</span></p>' +
-        '</section>';
-    }
-
-    /* --- other competitions ----------------------------------------------- */
+    /* --- other competitions ------------------------------------------------ */
     var others = C.filter(function (o) { return o.id !== c.id; }).map(function (o) {
       return '<a class="mini" href="' + o.page + '" data-accent="' + o.accent + '">' +
         '<span class="mini__icon">' + icon(o.icon) + '</span>' +
@@ -696,7 +803,8 @@
         '</div>' +
       '</header>' +
 
-      '<div class="cp-body">' + eligHtml + groupsHtml + processHtml + pendingHtml + '</div>' +
+      '<div class="cp-body">' + eligHtml + groupsHtml + formatHtml + teamHtml +
+        criteriaHtml + processHtml + notesHtml + pendingHtml + '</div>' +
 
       '<section class="cp-others reveal">' +
         '<h2 class="cp-others__title">इतर स्पर्धा</h2>' +
@@ -706,9 +814,9 @@
       '<section class="cp-cta reveal">' +
         '<div class="cp-cta__inner">' +
           '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
-          '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा व विषय दिसतील. ' +
-            (isOnline ? 'ऑनलाइन स्पर्धांचे नियम निश्चित झाल्यावर आयोजक अंतिम पुष्टी देतील.'
-                      : 'ही स्पर्धा आपोआप निवडलेली असेल.') + '</p>' +
+          '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
+            (isTeam ? '; संघप्रमुखाचे नाव व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
+                    : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
           '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
             escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
         '</div>' +
@@ -748,7 +856,7 @@
     var requested = params.get('competition');
     if (requested && byId(requested)) preselectId = requested;
 
-    renderOnlinePicks();
+    renderOnlinePicks(null);
     renderPreselectHint();
     /* Online competitions have no class filter, so a ?competition=… link can be
        honoured straight away. Class-based ones wait for the standard. */
@@ -756,25 +864,30 @@
 
     standardSelect.addEventListener('change', function () {
       var previous = selection.length;
-      /* Drop selections that are no longer valid for the new class. */
-      selection = selection.filter(function (entry) {
-        var c = byId(entry.id);
-        return c && (!c.eligibility || c.mode === 'online');
-      });
-      hideStatus();
-      clearError(qs('#err-competitions'));
 
       if (standardSelect.value === '') {
-        qs('#offlineList').innerHTML = '';
-        var offlineGroup = qs('#offlineGroup');
-        if (offlineGroup) offlineGroup.hidden = true;
-        var picked = qs('#pickedStandard');
-        if (picked) { picked.hidden = true; picked.innerHTML = ''; }
+        selection = [];
+        hideStatus();
+        clearError(qs('#err-competitions'));
+        resetSelectionUI();
+        var pickedEmpty = qs('#pickedStandard');
+        if (pickedEmpty) { pickedEmpty.hidden = true; pickedEmpty.innerHTML = ''; }
         return;
       }
 
       var index = Number(standardSelect.value);
+      /* Drop only the selections the new class is not eligible for. */
+      selection = selection.filter(function (entry) {
+        var c = byId(entry.id);
+        return c && isEligible(c, index);
+      });
+      var dropped = previous - selection.length;
+
+      hideStatus();
+      clearError(qs('#err-competitions'));
+
       renderOfflinePicks(index);
+      renderOnlinePicks(index);
       applyPreselect(index);
 
       var pickedBox = qs('#pickedStandard');
@@ -783,7 +896,9 @@
         pickedBox.innerHTML = icon('#i-info') +
           '<span><strong>' + escapeHtml(standardLabel(index)) + '</strong> साठी ' +
           toMarathi(eligibleFor(index).length) + ' स्पर्धा उपलब्ध आहेत. आवडीच्या स्पर्धा निवडा' +
-          (previous ? ' (इयत्ता बदलल्यामुळे आधीची निवड रद्द केली आहे).' : '.') + '</span>';
+          (dropped > 0
+            ? ' (इयत्ता बदलल्यामुळे ' + toMarathi(dropped) + ' निवड/निवडी काढून टाकल्या आहेत).'
+            : '.') + '</span>';
       }
     });
 
@@ -833,52 +948,96 @@
   }
 
   function resetSelectionUI() {
+    pickState = {};
     var offlineList = qs('#offlineList');
     var offlineGroup = qs('#offlineGroup');
     var onlineList = qs('#onlineList');
+    var onlineGroup = qs('#onlineGroup');
     if (offlineList) offlineList.innerHTML = '';
     if (offlineGroup) offlineGroup.hidden = true;
-    if (onlineList) renderOnlinePicks();
+    if (onlineList) onlineList.innerHTML = '';
+    if (onlineGroup) onlineGroup.hidden = true;
   }
 
   /* --- rendering the pickable competition cards --------------------------- */
+  /* Typed topics / team details survive a re-render (e.g. when the class changes). */
+  var pickState = {};
+
+  function capturePickState() {
+    var state = {};
+    qsa('[data-topic-select]').forEach(function (s) { state['topic:' + s.getAttribute('data-topic-select')] = s.value; });
+    qsa('[data-team-leader]').forEach(function (s) { state['leader:' + s.getAttribute('data-team-leader')] = s.value; });
+    qsa('[data-team-members]').forEach(function (s) { state['members:' + s.getAttribute('data-team-members')] = s.value; });
+    return state;
+  }
+
+  function teamMemberCount(value) {
+    return String(value || '').split('\n').map(function (line) { return line.trim(); })
+      .filter(Boolean).length;
+  }
+
   function pickCard(c, standardIndex) {
     var checked = selection.some(function (s) { return s.id === c.id; });
     var group = (standardIndex != null && c.eligibility) ? groupFor(c, standardIndex) : null;
-    var isOnline = c.mode === 'online';
+    var isTeam = !!c.isTeam;
+    var hasTopics = !!(group && group.topics && group.topics.length);
+    var saved = pickState || {};
 
-    var body = '';
-    if (isOnline) {
-      body = '' +
-        '<div class="comp-pick__body" data-comp-body="' + c.id + '"' + (checked ? '' : ' hidden') + '>' +
-          '<p class="comp-pick__pending">' + icon('#i-info') +
-            '<span>ही ऑनलाइन स्पर्धा आहे. या स्पर्धेची पात्रता, नियम व सादरीकरणाचे तपशील ' +
-            'आयोजकांकडून निश्चित होणे बाकी आहेत. नोंदणी केल्याने सहभाग निश्चित होत नाही; ' +
-            'अंतिम पुष्टी आयोजक देतील.</span></p>' +
-        '</div>';
-    } else {
-      body = '' +
-        '<div class="comp-pick__body" data-comp-body="' + c.id + '"' + (checked ? '' : ' hidden') + '>' +
-          '<span class="comp-pick__group">' + icon('#i-check') +
-            'आपोआप निश्चित गट: ' + escapeHtml(group ? stripGroupPrefix(group.label) : '—') +
-            (group && group.note ? ' (' + escapeHtml(group.note) + ')' : '') +
+    var bodyInner = '';
+
+    if (isTeam) {
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+        '</span>' +
+        '<label class="field" for="leader-' + c.id + '">' +
+          '<span class="field__label">संघप्रमुखाचे नाव <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<input class="field__input" type="text" id="leader-' + c.id + '" data-team-leader="' + c.id + '"' +
+            ' value="' + escapeHtml(saved['leader:' + c.id] || '') + '"' +
+            ' aria-describedby="err-leader-' + c.id + '" />' +
+          '<span class="field__error" id="err-leader-' + c.id + '" role="alert"></span>' +
+        '</label>' +
+        '<label class="field" for="members-' + c.id + '">' +
+          '<span class="field__label">संघातील सर्व सहभागी विद्यार्थ्यांची नावे व इयत्ता <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<textarea class="field__input field__input--area" id="members-' + c.id + '" data-team-members="' + c.id + '"' +
+            ' rows="5" placeholder="एका ओळीत एका विद्यार्थ्याचे नाव व इयत्ता&#10;उदा. राम शामराव पाटील — इयत्ता ५ वी"' +
+            ' aria-describedby="hint-members-' + c.id + ' err-members-' + c.id + '">' +
+            escapeHtml(saved['members:' + c.id] || '') + '</textarea>' +
+          '<span class="field__hint" id="hint-members-' + c.id + '">किमान ' + toMarathi(c.teamMin) +
+            ' सहभागींची माहिती भरा (संघप्रमुखासह).</span>' +
+          '<span class="field__error" id="err-members-' + c.id + '" role="alert"></span>' +
+        '</label>' +
+        /* Only for competitions whose rules are still entirely unconfirmed —
+           for the team events the section note already says what is pending. */
+        (c.pending && c.notes && c.notes.length
+          ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
+          : '');
+    } else if (hasTopics) {
+      var chosen = saved['topic:' + c.id] || (selection.filter(function (s) { return s.id === c.id; })[0] || {}).topic || '';
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+          (group.note ? ' (' + escapeHtml(group.note) + ')' : '') +
+        '</span>' +
+        '<label class="field comp-pick__topic" for="topic-' + c.id + '">' +
+          '<span class="field__label">विषय निवडा <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<span class="field__select">' +
+            '<select class="field__input" id="topic-' + c.id + '" data-topic-select="' + c.id + '" aria-describedby="err-topic-' + c.id + '">' +
+              '<option value="">कृपया विषय निवडा</option>' +
+              group.topics.map(function (t) {
+                return '<option value="' + escapeHtml(t) + '"' + (chosen === t ? ' selected' : '') + '>' +
+                  escapeHtml(t) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<svg class="icon field__chevron" aria-hidden="true"><use href="#i-arrow"/></svg>' +
           '</span>' +
-          '<label class="field comp-pick__topic" for="topic-' + c.id + '">' +
-            '<span class="field__label">विषय निवडा <abbr class="req" title="आवश्यक">*</abbr></span>' +
-            '<span class="field__select">' +
-              '<select class="field__input" id="topic-' + c.id + '" data-topic-select="' + c.id + '" aria-describedby="err-topic-' + c.id + '">' +
-                '<option value="">कृपया विषय निवडा</option>' +
-                (group ? group.topics.map(function (t) {
-                  return '<option value="' + escapeHtml(t) + '"' +
-                    ((selection.filter(function (s) { return s.id === c.id; })[0] || {}).topic === t ? ' selected' : '') +
-                    '>' + escapeHtml(t) + '</option>';
-                }).join('') : '') +
-              '</select>' +
-              '<svg class="icon field__chevron" aria-hidden="true"><use href="#i-arrow"/></svg>' +
-            '</span>' +
-            '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>' +
-          '</label>' +
-        '</div>';
+          '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>' +
+        '</label>';
+    } else {
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+        '</span>';
     }
 
     return '' +
@@ -895,12 +1054,15 @@
                 (c.eligibility
                   ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to))
                   : 'पात्रता: निश्चित होणे बाकी') +
-                (isOnline ? ' · ऑनलाइन' : '') +
+                (c.mode === 'online' ? ' · ऑनलाइन' : '') +
+                (isTeam ? ' · संघ स्पर्धा' : '') +
               '</span>' +
             '</span>' +
           '</label>' +
         '</div>' +
-        body +
+        '<div class="comp-pick__body" data-comp-body="' + c.id + '"' + (checked ? '' : ' hidden') + '>' +
+          bodyInner +
+        '</div>' +
       '</div>';
   }
 
@@ -927,6 +1089,8 @@
             var select = qs('select', body);
             if (select) select.value = '';
             clearError(qs('#err-topic-' + id));
+            clearError(qs('#err-leader-' + id));
+            clearError(qs('#err-members-' + id));
           }
         }
       });
@@ -940,22 +1104,50 @@
         if (select.value) clearError(qs('#err-topic-' + id));
       });
     });
+
+    /* Team fields: clear the error as soon as the requirement is met. */
+    qsa('[data-team-leader]', root).forEach(function (input) {
+      input.addEventListener('input', function () {
+        if (input.value.trim().length >= 3) clearError(qs('#err-leader-' + input.getAttribute('data-team-leader')));
+      });
+    });
+    qsa('[data-team-members]', root).forEach(function (input) {
+      var c = byId(input.getAttribute('data-team-members'));
+      input.addEventListener('input', function () {
+        if (c && teamMemberCount(input.value) >= c.teamMin) {
+          clearError(qs('#err-members-' + input.getAttribute('data-team-members')));
+        }
+      });
+    });
   }
 
   function renderOfflinePicks(standardIndex) {
     var list = qs('#offlineList');
     var group = qs('#offlineGroup');
     if (!list) return;
-    var eligible = eligibleFor(standardIndex);
+    pickState = capturePickState();
+    var eligible = eligibleFor(standardIndex).filter(function (c) { return !c.isTeam; });
     if (group) group.hidden = false;
-    list.innerHTML = eligible.map(function (c) { return pickCard(c, standardIndex); }).join('');
+    list.innerHTML = eligible.length
+      ? eligible.map(function (c) { return pickCard(c, standardIndex); }).join('')
+      : '<p class="selection__note">या इयत्तेसाठी सध्या कोणतीही वैयक्तिक स्पर्धा उपलब्ध नाही.</p>';
     bindPicks(list);
   }
 
-  function renderOnlinePicks() {
+  function renderOnlinePicks(standardIndex) {
     var list = qs('#onlineList');
+    var group = qs('#onlineGroup');
     if (!list) return;
-    list.innerHTML = onlineCompetitions().map(function (c) { return pickCard(c, null); }).join('');
+    if (standardIndex == null) {            /* still waiting for the class */
+      pickState = capturePickState();
+      list.innerHTML = '';
+      if (group) group.hidden = true;
+      return;
+    }
+    pickState = capturePickState();
+    var teams = eligibleFor(standardIndex).filter(function (c) { return !!c.isTeam; });
+    if (group) group.hidden = teams.length === 0;
+    list.innerHTML = teams.map(function (c) { return pickCard(c, standardIndex); }).join('');
     bindPicks(list);
   }
 
@@ -1011,7 +1203,8 @@
       var group = (c.eligibility && standardIndex != null) ? groupFor(c, standardIndex) : null;
       note.innerHTML = icon('#i-check') + '<span><strong>' + escapeHtml(c.name) + '</strong> आपोआप निवडली आहे. ' +
         (group
-          ? 'आपला गट: <strong>' + escapeHtml(stripGroupPrefix(group.label)) + '</strong>. कृपया विषय निवडा.'
+          ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
+            (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.')
           : 'या ऑनलाइन स्पर्धेची पात्रता व नियम निश्चित होणे बाकी आहेत.') +
         '</span>';
     }
@@ -1060,10 +1253,42 @@
 
     if (!selection.length) errors.push(setError(qs('#err-competitions'), 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.'));
 
+    var standardIndex = standard.value === '' ? null : Number(standard.value);
+
     selection.forEach(function (entry) {
       var c = byId(entry.id);
-      if (c && c.groups.length && !entry.topic) {
+      if (!c) return;
+
+      /* topic: only required when the assigned group actually has topics */
+      var group = (c.eligibility && standardIndex != null) ? groupFor(c, standardIndex) : null;
+      if (group && group.topics && group.topics.length && !entry.topic) {
         errors.push(setError(qs('#err-topic-' + entry.id), 'कृपया या स्पर्धेसाठी विषय निवडा.'));
+      }
+
+      /* team entries: leader + the minimum number of participants */
+      if (c.isTeam) {
+        var leader = qs('#leader-' + entry.id);
+        var members = qs('#members-' + entry.id);
+        if (leader) {
+          var leaderValue = leader.value.trim();
+          if (!leaderValue) {
+            errors.push(setError(qs('#err-leader-' + entry.id), 'कृपया संघप्रमुखाचे नाव भरा.'));
+          } else if (leaderValue.length < 3) {
+            errors.push(setError(qs('#err-leader-' + entry.id), 'संघप्रमुखाचे नाव किमान ३ अक्षरांचे असावे.'));
+          } else {
+            clearError(qs('#err-leader-' + entry.id));
+          }
+        }
+        if (members) {
+          var count = teamMemberCount(members.value);
+          if (count < c.teamMin) {
+            errors.push(setError(qs('#err-members-' + entry.id),
+              'कृपया किमान ' + toMarathi(c.teamMin) + ' सहभागी विद्यार्थ्यांची नावे व इयत्ता भरा (सध्या ' +
+              toMarathi(count) + ').'));
+          } else {
+            clearError(qs('#err-members-' + entry.id));
+          }
+        }
       }
     });
 
@@ -1158,13 +1383,24 @@
       registrations: selection.map(function (entry) {
         var c = byId(entry.id);
         var group = (c && c.eligibility) ? groupFor(c, standardIndex) : null;
-        return {
+        var reg = {
           competition: c ? c.name : entry.id,
           mode: c ? c.mode : 'offline',
-          group: group ? stripGroupPrefix(group.label) : '',
+          group: group ? groupDisplay(c, group) : '',
           topic: entry.topic || '',
           status: (c && (!c.eligibility || !c.groups.length)) ? 'pending-confirmation' : 'registered'
         };
+        if (c && c.isTeam) {
+          var leaderEl = qs('#leader-' + entry.id);
+          var membersEl = qs('#members-' + entry.id);
+          reg.team = {
+            leader: leaderEl ? leaderEl.value.trim() : '',
+            members: membersEl ? membersEl.value.split('\n').map(function (l) {
+              return l.trim();
+            }).filter(Boolean) : []
+          };
+        }
+        return reg;
       })
     };
   }
@@ -1239,6 +1475,7 @@
     if (!successCard) return;
 
     var hasPending = payload.registrations.some(function (r) { return r.status === 'pending-confirmation'; });
+    var hasTeam = payload.registrations.some(function (r) { return r.mode === 'online'; });
 
     if (summary) {
       var rows = [
@@ -1255,9 +1492,15 @@
         '</dl>' +
         '<dl class="success__picks">' +
         payload.registrations.map(function (r) {
-          var line = r.mode === 'online'
-            ? 'ऑनलाइन स्पर्धा · ' + (r.status === 'pending-confirmation' ? 'अंतिम पुष्टी बाकी' : 'नोंदणी झाली')
-            : escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
+          var line;
+          if (r.team) {
+            line = escapeHtml(r.group) + ' · संघप्रमुख: ' + escapeHtml(r.team.leader) +
+              ' · सहभागी: ' + toMarathi(r.team.members.length);
+          } else if (r.topic) {
+            line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
+          } else {
+            line = escapeHtml(r.group);
+          }
           return '<dt>' + escapeHtml(r.competition) + '</dt><dd>' + line + '</dd>';
         }).join('') +
         '</dl>';
@@ -1265,10 +1508,12 @@
 
     var pendingNote = qs('#successPendingNote');
     if (pendingNote) {
-      pendingNote.hidden = !hasPending;
+      pendingNote.hidden = !(hasPending || hasTeam);
       pendingNote.innerHTML = icon('#i-info') +
-        '<span>ऑनलाइन स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नसल्याने, त्या नोंदणीची ' +
-        'अंतिम पुष्टी आयोजकांकडून केली जाईल.</span>';
+        '<span>' + (hasPending
+          ? 'ऑनलाइन स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नसल्याने, त्या नोंदणीची अंतिम पुष्टी आयोजकांकडून केली जाईल.'
+          : 'संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.') +
+        '</span>';
     }
 
     successCard.hidden = false;

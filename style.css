@@ -353,6 +353,7 @@ p{ margin:0 0 1em; }
   -webkit-mask-image:radial-gradient(circle at 50% 30%, #000 0%, transparent 70%);
 }
 .hero__inner{ display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:clamp(24px,4vw,52px); align-items:center; }
+.hero__content{ min-width:0; }
 .hero__eyebrow{
   display:inline-flex; align-items:center; gap:10px; margin:0 0 16px; font-size:.85rem; font-weight:600;
   color:var(--maroon); background:rgba(255,255,255,.7); border:1px solid var(--line);
@@ -850,6 +851,44 @@ p{ margin:0 0 1em; }
 .success__summary dd{ margin:0; font-weight:600; font-size:.95rem; }
 .success__actions{ display:flex; justify-content:center; gap:14px; }
 
+.rules{ list-style:none; display:grid; gap:10px; margin:0 0 1em; }
+.rules li{
+  display:flex; gap:10px; align-items:flex-start; font-size:.98rem; color:var(--ink-2);
+  background:var(--paper); border:1px solid var(--line-2); border-radius:var(--radius-sm);
+  padding:.6em .9em; border-left:3px solid var(--accent);
+}
+.rules li .icon{ color:var(--accent); flex:0 0 auto; width:1.05em; height:1.05em; margin-top:.45em; stroke-width:2.2; }
+.rules--plain li{ background:transparent; border:0; border-left:0; padding:.15em 0; }
+.rules--plain li .icon{ color:var(--green); }
+
+.criteria{
+  width:100%; border-collapse:collapse; margin:0 0 1.1em; font-size:.97rem;
+  background:var(--paper); border:1px solid var(--line-2); border-radius:var(--radius); overflow:hidden;
+}
+.criteria th, .criteria td{ padding:.7em 1em; text-align:left; border-bottom:1px solid var(--line-2); }
+.criteria thead th{
+  background:linear-gradient(180deg, rgba(122,31,43,.05), rgba(232,137,12,.06));
+  font-size:.86rem; color:var(--maroon); font-weight:700;
+}
+.criteria thead th:last-child{ text-align:right; }
+.criteria tbody th{ font-weight:500; color:var(--ink-2); }
+.criteria tbody td{ text-align:right; font-weight:700; color:var(--maroon); width:96px; font-variant-numeric:tabular-nums; }
+.criteria tbody tr:last-child th, .criteria tbody tr:last-child td{ border-bottom:0; }
+.criteria__total th, .criteria__total td{
+  background:rgba(232,137,12,.08); font-weight:700; color:var(--maroon);
+  border-top:1px solid var(--accent-line);
+}
+
+.field__input--area{ min-height:120px; resize:vertical; line-height:1.75; }
+
+.notice--info{ background:#FFF8E9; border-color:rgba(201,154,60,.45); }
+.notice--pending{ background:#FFF3E0; border-color:var(--gold); }
+
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
 /* ==========================================================================
    7. RESPONSIVE + MOTION
    ========================================================================== */
@@ -905,6 +944,8 @@ p{ margin:0 0 1em; }
 }
 @media (max-width: 640px){
   body{ font-size:.97rem; }
+  .criteria th, .criteria td{ padding:.6em .7em; font-size:.92rem; }
+  .criteria tbody td{ width:64px; }
   .cards{ grid-template-columns:1fr; }
   .minis{ grid-template-columns:1fr; }
   .footer__top{ grid-template-columns:1fr; }

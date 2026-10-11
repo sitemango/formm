@@ -117,21 +117,27 @@
           <div class="selection">
             <p class="selection__empty" id="selectionEmpty">
               <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
-              <span>उपलब्ध स्पर्धा पाहण्यासाठी कृपया आधी आपली <strong>इयत्ता</strong> निवडा. ऑनलाइन स्पर्धा खाली नेहमी उपलब्ध असतात.</span>
+              <span>उपलब्ध स्पर्धा पाहण्यासाठी कृपया आधी आपली <strong>इयत्ता</strong> निवडा. प्रत्येक
+              स्पर्धेची पात्रता वेगळी आहे — इयत्ता निवडल्यानंतर आपण ज्या स्पर्धांसाठी पात्र आहात तेवढ्याच
+              दिसतील. वैयक्तिक स्पर्धांसाठी गट व विषय आपोआप निश्चित होतील; संघ स्पर्धांसाठी संघप्रमुख व
+              किमान ५ सहभागींची माहिती भरावी लागेल.</span>
             </p>
 
             <div class="selection__group" id="offlineGroup" hidden>
-              <h4 class="selection__title">इयत्तेनुसार उपलब्ध स्पर्धा</h4>
+              <h4 class="selection__title">वैयक्तिक स्पर्धा</h4>
+              <p class="selection__note">खालील स्पर्धांसाठी आपला गट इयत्तेनुसार आपोआप निश्चित होतो व
+              त्या गटाचे विषय दिसतील.</p>
               <div class="selection__list" id="offlineList"></div>
             </div>
 
-            <div class="selection__group" id="onlineGroup">
-              <h4 class="selection__title">ऑनलाइन स्पर्धा
+            <div class="selection__group" id="onlineGroup" hidden>
+              <h4 class="selection__title">संघ स्पर्धा — ऑनलाइन
                 <span class="tag tag--online english-text">Online</span>
               </h4>
-              <p class="selection__note">समूह नृत्य, समूह गायन आणि समूह फॅशन शो या तीन ऑनलाइन स्पर्धांसाठी कोणतीही
-              इयत्ता-अट लागू केलेली नाही. या स्पर्धांची पात्रता, नियम व सादरीकरणाचे तपशील आयोजकांकडून निश्चित
-              होणे बाकी आहेत — नोंदणी केल्याने सहभाग निश्चित होत नाही; अंतिम पुष्टी आयोजक देतील.</p>
+              <p class="selection__note">समूह नृत्य, समूह गायन आणि समूह फॅशन शो या तीन ऑनलाइन संघ स्पर्धा आहेत.
+              सादरीकरण ३ ते ५ मिनिटांच्या व्हिडिओ स्वरूपात असेल आणि प्रत्येक संघात किमान ५ सहभागी असणे आवश्यक आहे.
+              प्रत्येक संघासाठी संघप्रमुखाचे नाव व सर्व सहभागी विद्यार्थ्यांची माहिती भरावी लागेल.
+              व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.</p>
               <div class="selection__list" id="onlineList"></div>
             </div>
 
@@ -145,8 +151,8 @@
             <input type="checkbox" id="declaration" name="declaration" required aria-describedby="err-declaration" />
             <span class="check__box" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
             <span class="check__text">वरील माहिती मी स्वतः तपासून अचूक भरली आहे आणि निवडलेल्या स्पर्धांसाठी
-            माझा/माझ्या पाल्याचा सहभाग निश्चित आहे, याची मी खात्री देतो/देते. ऑनलाइन स्पर्धांचे नियम निश्चित
-            झाल्यावर अंतिम पुष्टी आयोजकांकडून दिली जाईल, हे मी समजून घेतले आहे.</span>
+            माझा/माझ्या पाल्याचा सहभाग निश्चित आहे, याची मी खात्री देतो/देते. संघ स्पर्धांसाठी किमान ५ सहभागींची
+            माहिती देणे व व्हिडिओ पाठविण्याच्या सूचनांचे पालन करणे आवश्यक आहे, हे मी समजून घेतले आहे.</span>
           </label>
           <span class="field__error" id="err-declaration" role="alert"></span>
         </fieldset>

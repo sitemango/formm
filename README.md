@@ -31,45 +31,70 @@ can be opened directly by URL and the whole thing publishes to GitHub Pages as-i
 > (behaviour) so that all eleven pages share one copy of the navigation, footer and
 > competition data.
 
-## The three online competitions
+## The three online team competitions
 
 समूह नृत्य, समूह गायन and समूह फॅशन शो are marked **Online Competition / ऑनलाइन स्पर्धा**
-on the homepage, on their own pages and in the registration form.
+on the homepage, on their own pages and in the registration form. Their rules are now
+confirmed by the organisers and are rendered on every one of those three pages:
 
-Their eligibility, rules, submission format, group size and judging criteria have **not**
-been announced, so the site does not invent them:
+* **पात्रता** — बालवाडी ते इयत्ता १० वी, in four groups:
+  गट १ बालवाडी · गट २ इयत्ता १ ली ते ४ थी · गट ३ इयत्ता ५ वी ते ७ वी · गट ४ इयत्ता ८ वी ते १० वी
+* **सादरीकरणाचे स्वरूप व कालावधी** — online; a clear video sent through the medium the
+  organisers specify; every participant and the whole presentation must be clearly visible
+  and audible; **३ ते ५ मिनिटे**
+* **सहभागींची संख्या** — **किमान ५ सहभागी**, with the team leader’s name and the names and
+  classes of all participating students given at registration
+* **निर्णायक निकष** — out of १००: कल्पकता व नावीन्य २० · सादरीकरणाची गुणवत्ता व कौशल्य २५ ·
+  संघातील समन्वय व सहभाग २० · विषयाची निवड व सुसंगती १५ ·
+  एकूण प्रभाव व सादरीकरणाची छाप २० · **एकूण १००**. The judges’ decision is final.
 
-* `eligibility: null` and `groups: []` in `data.js`
-* each page shows the transparent notice
-  “या स्पर्धेची पात्रता, नियम व सादरीकरणासंबंधी माहिती आयोजकांकडून निश्चित झाल्यानंतर येथे प्रसिद्ध केली जाईल.”
-  plus a short list of the details still pending
-* the registration form accepts them with no class filter, never asks for a topic, and
-  states that registering does **not** guarantee participation
-* submitted entries are tagged `status: "pending-confirmation"`, and the success screen
-  repeats that the organisers will confirm
+Two details are still genuinely unannounced, and the site says so rather than inventing
+them: the **final video-submission date and technical instructions**, and the **maximum
+team size** (“आयोजकांच्या नियमानुसार”). Both appear under “अद्याप जाहीर होणे बाकी” on the
+three pages and in the registration form.
 
-### Filling the details in later
+### How they behave in the registration form
+
+These are team events, so they work a little differently from the six individual ones:
+
+* they appear in their own **संघ स्पर्धा — ऑनलाइन** section, with the group worked out
+  from the class you picked (इयत्ता ६ वी → गट ३)
+* there is **no topic dropdown** — the team chooses its own presentation
+* the form asks for the **संघप्रमुखाचे नाव** and a textarea for
+  **संघातील सर्व सहभागी विद्यार्थ्यांची नावे व इयत्ता** (one per line)
+* validation is real: the leader’s name is required and at least five participants must
+  be listed before the form will submit
+* the payload carries them as `team: { leader, members: [...] }`, so the spreadsheet
+  receives one row per team entry
+
+### Filling in or changing details later
 
 Open `data.js` and edit the relevant competition object:
 
 ```js
 {
   id: "group-dance",
-  ...
-  eligibility: { from: 1, to: 10 },          // indices in the standards array
+  eligibility: { from: 0, to: 10 },          // indices in the standards array
   groups: [
-    { label: "गट १ — इयत्ता १ ली ते ४ थी", from: 1, to: 4,
-      topics: ["विषय १", "विषय २"] }
+    { label: "गट १ — बालवाडी", from: 0, to: 0, topics: [] },
+    ...
   ],
-  pending: false,                             // hides the "not yet announced" notice
-  pendingItems: [],
-  rules: ["आयोजकांनी जाहीर केलेला नियम"]       // only what has actually been confirmed
+  isTeam: true,                              // team event → no topics, team fields instead
+  teamMin: 5,                                // minimum participants, enforced on submit
+  duration: "३ ते ५ मिनिटे",
+  format: [ "...", "..." ],                  // सादरीकरणाचे स्वरूप
+  teamRules: [ "..." ],                      // सहभागींची संख्या
+  criteria: [ { label: "...", marks: "२०" }, ..., { label: "एकूण", marks: "१००", total: true } ],
+  judgingNotes: [ "..." ],
+  notes: [ "..." ],                          // what is still awaiting announcement
+  pending: false,                            // true re-shows the "not yet announced" notice
+  pendingItems: []
 }
 ```
 
-The moment you do that: the page gains its eligibility block, group/topic lists and rules;
-the competition starts obeying the class filter in the registration form; and the topic
-dropdown appears automatically. Nothing else needs editing.
+The renderer only prints the sections that exist in the data, so removing a key simply
+removes that section from the page — and adding one adds it everywhere, including the
+homepage summary and the registration form.
 
 ## Typography
 
@@ -207,10 +232,12 @@ function json(obj) {
   ranges, so append new classes at the end).
 * Only competitions eligible for the chosen class are offered; the group is derived
   automatically and cannot be picked by the participant; only that group's topics appear.
-* Changing the class clears invalid selections and tells the visitor.
+* Changing the class drops only the selections the new class cannot enter, and the note
+  says how many were removed.
 * Each competition page links to `registration.html?competition=<id>`, which pre-selects
-  that competition (immediately for the online ones, as soon as the class is chosen for the
-  rest, with an honest message if the class is not eligible).
+  that competition as soon as a class is chosen, with an honest message if that class is
+  not eligible.
+* Team entries additionally require the संघप्रमुखाचे नाव and at least five participants.
 * Marathi inline errors, an error summary, focus management and a हमीपत्र confirmation.
 * Success is shown **only** after the endpoint confirms the save; HTTP errors, network
   failures and timeouts show an error and keep the typed data.
