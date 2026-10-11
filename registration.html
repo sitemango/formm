@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>नोंदणी करा | बालसंस्कार फेस्टिवल २०२६</title>
+<meta name="description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. नऊही स्पर्धांसाठी ऑनलाइन नोंदणी." />
+<meta name="theme-color" content="#7A1F2B" />
+<meta property="og:title" content="नोंदणी करा | बालसंस्कार फेस्टिवल २०२६" />
+<meta property="og:description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. नऊही स्पर्धांसाठी ऑनलाइन नोंदणी." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='23' fill='%237A1F2B'/%3E%3Cg fill='%23F2A63B'%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(45 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(90 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(135 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(180 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(225 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(270 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(315 24 24)'/%3E%3C/g%3E%3Ccircle cx='24' cy='24' r='5.6' fill='%23FFF7E8'/%3E%3C/svg%3E" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+
+<body data-page="registration">
+<a class="skip-link" href="#main">मुख्य मजकुराकडे जा</a>
+<div id="iconSprite" hidden></div>
+
+<header id="siteHeader"></header>
+
+<noscript>
+  <div class="container" style="padding-top:22px">
+    <p class="noscript-note">या पृष्ठावरील माहिती, नेव्हिगेशन आणि नोंदणी फॉर्म JavaScript वर चालतात.
+    कृपया JavaScript सुरू करा किंवा <a href="index.html">मुख्यपृष्ठ</a> पहा.</p>
+  </div>
+</noscript>
+
+<main id="main" class="page">
+  <div class="container" style="max-width:940px">
+    <nav class="breadcrumb" aria-label="ब्रेडक्रंब">
+      <ol>
+        <li><a href="index.html">मुख्यपृष्ठ</a></li>
+        <li aria-current="page">नोंदणी करा</li>
+      </ol>
+    </nav>
+
+    <header class="section-head">
+      <p class="section-head__kicker">नोंदणी</p>
+      <h1 class="section-head__title" style="font-size:clamp(1.7rem,4.2vw,2.5rem)">स्पर्धेसाठी नोंदणी करा</h1>
+      <span class="ornament" aria-hidden="true"></span>
+      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील.</p>
+    </header>
+
+    <div class="register-card">
+      <p class="config-note" id="configNote" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+        <span>सूचना: नोंदणी माहिती पाठवण्यासाठी Google Apps Script endpoint अद्याप जोडलेला नाही. तो जोडेपर्यंत फॉर्म पाठवला जात नाही.</span>
+      </p>
+
+      <form class="form" id="registrationForm" novalidate>
+        <fieldset class="form__block">
+          <legend class="form__legend"><span class="form__legend-num">१</span> विद्यार्थ्याची माहिती</legend>
+
+          <div class="form__grid">
+            <label class="field" for="studentName">
+              <span class="field__label">विद्यार्थ्याचे पूर्ण नाव <abbr class="req" title="आवश्यक">*</abbr></span>
+              <input class="field__input" type="text" id="studentName" name="studentName" autocomplete="name" required aria-describedby="err-studentName" />
+              <span class="field__error" id="err-studentName" role="alert"></span>
+            </label>
+
+            <label class="field" for="standard">
+              <span class="field__label">इयत्ता <abbr class="req" title="आवश्यक">*</abbr></span>
+              <span class="field__select">
+                <select class="field__input" id="standard" name="standard" required aria-describedby="err-standard hint-standard">
+                  <option value="">इयत्ता निवडा</option>
+                </select>
+                <svg class="icon field__chevron" aria-hidden="true"><use href="#i-arrow"/></svg>
+              </span>
+              <span class="field__hint" id="hint-standard">इयत्ता निवडल्यानंतर पात्र स्पर्धा आपोआप दिसतील.</span>
+              <span class="field__error" id="err-standard" role="alert"></span>
+            </label>
+
+            <label class="field" for="schoolName">
+              <span class="field__label">शाळेचे नाव <abbr class="req" title="आवश्यक">*</abbr></span>
+              <input class="field__input" type="text" id="schoolName" name="schoolName" autocomplete="organization" required aria-describedby="err-schoolName" />
+              <span class="field__error" id="err-schoolName" role="alert"></span>
+            </label>
+
+            <label class="field" for="city">
+              <span class="field__label">गाव / शहर <abbr class="req" title="आवश्यक">*</abbr></span>
+              <input class="field__input" type="text" id="city" name="city" autocomplete="address-level2" required aria-describedby="err-city" />
+              <span class="field__error" id="err-city" role="alert"></span>
+            </label>
+
+            <label class="field" for="guardianName">
+              <span class="field__label">पालकांचे किंवा संरक्षकाचे नाव <abbr class="req" title="आवश्यक">*</abbr></span>
+              <input class="field__input" type="text" id="guardianName" name="guardianName" required aria-describedby="err-guardianName" />
+              <span class="field__error" id="err-guardianName" role="alert"></span>
+            </label>
+
+            <label class="field" for="mobile">
+              <span class="field__label">संपर्कासाठी मोबाइल क्रमांक <abbr class="req" title="आवश्यक">*</abbr></span>
+              <input class="field__input" type="tel" id="mobile" name="mobile" inputmode="numeric" maxlength="10" autocomplete="tel" required aria-describedby="err-mobile hint-mobile" />
+              <span class="field__hint" id="hint-mobile">१० अंकी मोबाइल क्रमांक टाका.</span>
+              <span class="field__error" id="err-mobile" role="alert"></span>
+            </label>
+
+            <label class="field field--full" for="email">
+              <span class="field__label">ईमेल पत्ता <span class="opt">(ऐच्छिक)</span></span>
+              <input class="field__input" type="email" id="email" name="email" autocomplete="email" aria-describedby="err-email" />
+              <span class="field__error" id="err-email" role="alert"></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="form__block">
+          <legend class="form__legend"><span class="form__legend-num">२</span> स्पर्धा निवड</legend>
+
+          <p class="preselect-note" id="preselectNote" hidden></p>
+          <p class="picked-standard" id="pickedStandard" hidden aria-live="polite"></p>
+
+          <div class="selection">
+            <p class="selection__empty" id="selectionEmpty">
+              <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+              <span>उपलब्ध स्पर्धा पाहण्यासाठी कृपया आधी आपली <strong>इयत्ता</strong> निवडा. ऑनलाइन स्पर्धा खाली नेहमी उपलब्ध असतात.</span>
+            </p>
+
+            <div class="selection__group" id="offlineGroup" hidden>
+              <h4 class="selection__title">इयत्तेनुसार उपलब्ध स्पर्धा</h4>
+              <div class="selection__list" id="offlineList"></div>
+            </div>
+
+            <div class="selection__group" id="onlineGroup">
+              <h4 class="selection__title">ऑनलाइन स्पर्धा
+                <span class="tag tag--online english-text">Online</span>
+              </h4>
+              <p class="selection__note">समूह नृत्य, समूह गायन आणि समूह फॅशन शो या तीन ऑनलाइन स्पर्धांसाठी कोणतीही
+              इयत्ता-अट लागू केलेली नाही. या स्पर्धांची पात्रता, नियम व सादरीकरणाचे तपशील आयोजकांकडून निश्चित
+              होणे बाकी आहेत — नोंदणी केल्याने सहभाग निश्चित होत नाही; अंतिम पुष्टी आयोजक देतील.</p>
+              <div class="selection__list" id="onlineList"></div>
+            </div>
+
+            <span class="field__error" id="err-competitions" role="alert"></span>
+          </div>
+        </fieldset>
+
+        <fieldset class="form__block">
+          <legend class="form__legend"><span class="form__legend-num">३</span> हमीपत्र</legend>
+          <label class="check" for="declaration">
+            <input type="checkbox" id="declaration" name="declaration" required aria-describedby="err-declaration" />
+            <span class="check__box" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="check__text">वरील माहिती मी स्वतः तपासून अचूक भरली आहे आणि निवडलेल्या स्पर्धांसाठी
+            माझा/माझ्या पाल्याचा सहभाग निश्चित आहे, याची मी खात्री देतो/देते. ऑनलाइन स्पर्धांचे नियम निश्चित
+            झाल्यावर अंतिम पुष्टी आयोजकांकडून दिली जाईल, हे मी समजून घेतले आहे.</span>
+          </label>
+          <span class="field__error" id="err-declaration" role="alert"></span>
+        </fieldset>
+
+        <div class="form__status" id="formStatus" role="status" aria-live="polite" hidden></div>
+
+        <div class="form__actions">
+          <button class="btn btn--primary btn--lg" type="submit" id="submitBtn">नोंदणी पाठवा</button>
+          <button class="btn btn--ghost" type="reset" id="resetBtn">फॉर्म साफ करा</button>
+        </div>
+
+        <p class="form__note">
+          <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+          <span>स्पर्धेचा दिनांक, वेळ, ठिकाण, शुल्क आणि इतर तपशील आयोजकांमार्फत स्वतंत्रपणे जाहीर केले जातील.</span>
+        </p>
+      </form>
+
+      <div class="success" id="successCard" hidden>
+        <div class="success__emblem"><svg class="icon" aria-hidden="true"><use href="#emblem"/></svg></div>
+        <h2 class="success__title">नोंदणी यशस्वी!</h2>
+        <p class="success__text">आपली नोंदणी आम्हाला प्राप्त झाली आहे. पुढील माहिती आयोजकांमार्फत दिलेल्या संपर्क क्रमांकावर कळवली जाईल.</p>
+        <div class="success__summary" id="successSummary"></div>
+        <p class="config-note" id="successPendingNote" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+          <span></span>
+        </p>
+        <div class="success__actions">
+          <button class="btn btn--outline" type="button" id="newRegistrationBtn">दुसरी नोंदणी करा</button>
+          <a class="btn btn--ghost" href="index.html">मुख्यपृष्ठाकडे जा</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer id="siteFooter"></footer>
+
+<script src="data.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
