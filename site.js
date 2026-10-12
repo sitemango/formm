@@ -26,6 +26,11 @@
     requestTimeoutMs: 15000
   };
 
+  /* Carousel images live in the project root as 1.png … 15.png (see
+     window.FESTIVAL.gallery in data.js to change the folder, the count or the
+     extension). Files that are missing never reach the page — they are probed
+     first and dropped, so no broken-image icon is ever shown. */
+
   var DATA = window.FESTIVAL;
   if (!DATA) { return; }
 
@@ -34,6 +39,7 @@
   var C = DATA.competitions;
   var FAQ = DATA.faq;
   var UI = DATA.ui;
+  var GALLERY = DATA.gallery || null;
 
   /* ---------------------------------------------------------------- helpers */
   function qs(sel, root) { return (root || document).querySelector(sel); }
@@ -52,6 +58,11 @@
     if (from === to) return standardLabel(from);
     var toLabel = (from >= 1 && to >= 1) ? standardLabel(to).replace(/^इयत्ता\s*/, '') : standardLabel(to);
     return standardLabel(from) + ' ते ' + toLabel;
+  }
+
+  /* "रविवार, २२ नोव्हेंबर २०२६" → "२२ नोव्हेंबर २०२६" (compact, for cards) */
+  function shortDate(text) {
+    return String(text || '').replace(/^[^,]+,\s*/, '');
   }
 
   /* "गट ३ — इयत्ता ५ वी ते ७ वी"  →  "इयत्ता ५ वी ते ७ वी" (badge carries the number) */
@@ -213,6 +224,10 @@
       '<symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.6l4.6 4.6L19.5 6.8"/></symbol>' +
       '<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5"/></symbol>' +
       '<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.6l2.5 5.3 5.7.8-4.2 4.1 1 5.8-5-2.8-5 2.8 1-5.8L3.8 9.7l5.7-.8L12 3.6Z"/></symbol>' +
+      '<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.2" y="5" width="17.6" height="16" rx="2.6"/><path d="M3.2 10h17.6M8 3.2v3.6M16 3.2v3.6"/></symbol>' +
+      '<symbol id="i-prev" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></symbol>' +
+      '<symbol id="i-next" viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></symbol>' +
+      '<symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.4"/><circle cx="8.6" cy="10" r="1.6"/><path d="M4 17l5.2-5.2L14 16l3-2.6L20.4 17"/></symbol>' +
       '<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4M12 7.9h.02" stroke-width="2" stroke-linecap="round"/></symbol>' +
 
       '<defs>' +
@@ -424,6 +439,11 @@
       });
     }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
     items.forEach(function (i) { observer.observe(i); });
+
+    /* The gallery renders asynchronously — let it hook into the same observer. */
+    window.__festivalReveal = function () {
+      qsa('.reveal:not(.is-visible)').forEach(function (i) { observer.observe(i); });
+    };
   }
 
   /* ============================================================== HOMEPAGE */
@@ -444,6 +464,11 @@
               toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
             : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>') +
         '</span>' +
+        (c.schedule ? '<span class="ccard__date">' + icon('#i-cal') +
+          (c.schedule.kind === 'online'
+            ? 'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(shortDate(c.schedule.date))
+            : escapeHtml(c.schedule.date) + ' · ' + escapeHtml(c.schedule.time)) +
+        '</span>' : '') +
         '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
       '</a>';
   }
@@ -553,11 +578,61 @@
             ' <span class="online-card__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span></span>' +
           '<span class="online-card__note">ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
             ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी</span>' +
+          (c.schedule
+            ? '<span class="online-card__date">' + icon('#i-cal') +
+              'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(c.schedule.date) + '</span>'
+            : '') +
         '</span>' +
         '<span class="online-card__go">' + icon('#i-arrow') + '</span>' +
       '</a>';
     }).join('');
     host.innerHTML = items;
+  }
+
+  /* The festival schedule, sorted by date, straight from data.js. */
+  function renderSchedule() {
+    var host = qs('#scheduleList');
+    if (!host) return;
+
+    var head = qs('#scheduleHeading');
+    if (head && UI.scheduleHomeTitle) head.textContent = UI.scheduleHomeTitle;
+    var lede = qs('#scheduleLede');
+    if (lede && UI.scheduleHomeLede) lede.textContent = UI.scheduleHomeLede;
+
+    var rows = C.filter(function (c) { return c.schedule; }).slice().sort(function (a, b) {
+      var d = a.schedule.dateISO.localeCompare(b.schedule.dateISO);
+      if (d !== 0) return d;
+      return Number(a.schedule.order) - Number(b.schedule.order);
+    });
+
+    host.innerHTML = rows.map(function (c) {
+      var sch = c.schedule;
+      var when = sch.kind === 'online'
+        ? '<span class="sched__k">' + escapeHtml(UI.deadlineLabel) + '</span>' +
+          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>'
+        : '<span class="sched__k">' + escapeHtml(UI.dateLabel) + '</span>' +
+          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>';
+      return '' +
+        '<li class="srow reveal" data-accent="' + c.accent + '">' +
+          '<span class="srow__date">' +
+            '<span class="srow__day">' + escapeHtml(shortDate(sch.date).replace(/ २०२६$/, '')) + '</span>' +
+            '<span class="srow__weekday english-text">' + escapeHtml(sch.dateISO) + '</span>' +
+          '</span>' +
+          '<span class="srow__body">' +
+            '<a class="srow__name" href="' + c.page + '">' + escapeHtml(c.name) +
+              (c.nameLatin ? ' <span class="english-text srow__latin">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
+            '</a>' +
+            '<span class="srow__meta">' + when + '</span>' +
+            (sch.kind === 'online'
+              ? '<span class="srow__meta"><span class="sched__k">स्वरूप</span>' +
+                '<span class="sched__v">ऑनलाइन स्पर्धा</span></span>'
+              : '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.timeLabel) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(sch.time) + '</span></span>' +
+                '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.venueLabel) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(sch.venue) + '</span></span>') +
+          '</span>' +
+        '</li>';
+    }).join('');
   }
 
   function renderFaq() {
@@ -571,6 +646,174 @@
           '<div class="faq__a"><p>' + escapeHtml(item.a) + '</p></div>' +
         '</details>';
     }).join('');
+  }
+
+  /* =============================================================== GALLERY */
+  /* 1.png … 15.png are probed before anything is rendered: whichever files
+     actually exist become slides, the rest are never inserted into the page. */
+  function galleryCandidates() {
+    if (!GALLERY) return [];
+    var folder = GALLERY.folder || '';
+    if (folder && folder.charAt(folder.length - 1) !== '/') folder += '/';
+    var start = Number(GALLERY.start) || 1;
+    var count = Number(GALLERY.count) || 0;
+    var ext = GALLERY.extension || 'png';
+    var out = [];
+    for (var n = start; n < start + count; n++) {
+      out.push({
+        number: n,
+        src: folder + n + '.' + ext,
+        caption: (GALLERY.captions && GALLERY.captions[String(n)]) || '',
+        alt: (GALLERY.altPrefix || '') + toMarathi(n)
+      });
+    }
+    return out;
+  }
+
+  function probeImage(src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      var finish = function (ok) {
+        img.onload = img.onerror = null;
+        resolve(ok && img.naturalWidth ? { width: img.naturalWidth, height: img.naturalHeight } : null);
+      };
+      img.onload = function () { finish(true); };
+      img.onerror = function () { finish(false); };
+      img.src = src;
+    });
+  }
+
+  function initGallery() {
+    var section = qs('#gallery');
+    var host = qs('#carousel');
+    if (!section || !host) return;
+
+    var gHeading = qs('#galleryHeading');
+    if (gHeading && GALLERY && GALLERY.heading) gHeading.textContent = GALLERY.heading;
+    var gLede = qs('#galleryLede');
+    if (gLede && GALLERY && GALLERY.lede) gLede.textContent = GALLERY.lede;
+
+    var candidates = galleryCandidates();
+    if (!candidates.length) { section.hidden = true; return; }
+
+    Promise.all(candidates.map(function (item) { return probeImage(item.src); }))
+      .then(function (results) {
+        var images = [];
+        results.forEach(function (size, i) {
+          if (size) images.push({
+            src: candidates[i].src,
+            caption: candidates[i].caption,
+            alt: candidates[i].alt,
+            width: size.width,
+            height: size.height
+          });
+        });
+        if (!images.length) { section.hidden = true; return; }
+        buildCarousel(host, images);
+        section.hidden = false;
+        if (typeof window.__festivalReveal === 'function') window.__festivalReveal();
+      })
+      .catch(function () { section.hidden = true; });
+  }
+
+  function buildCarousel(host, images) {
+    var single = images.length < 2;
+
+    host.innerHTML = '' +
+      '<div class="carousel__stage" id="carouselStage">' +
+        '<ul class="carousel__track" id="carouselTrack">' +
+          images.map(function (img, i) {
+            return '<li class="carousel__slide' + (i === 0 ? ' is-active' : '') + '"' +
+              (i === 0 ? '' : ' aria-hidden="true"') + ' data-slide="' + i + '">' +
+              '<figure class="carousel__figure">' +
+                '<img class="carousel__img" src="' + escapeHtml(img.src) + '"' +
+                  ' alt="' + escapeHtml(img.alt) + '" width="' + img.width + '" height="' + img.height + '"' +
+                  (i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"') + ' />' +
+                (img.caption ? '<figcaption class="carousel__caption">' + escapeHtml(img.caption) + '</figcaption>' : '') +
+              '</figure>' +
+            '</li>';
+          }).join('') +
+        '</ul>' +
+        (single ? '' :
+          '<button class="carousel__nav carousel__nav--prev" type="button" id="carouselPrev" ' +
+            'aria-label="' + escapeHtml(UI.galleryPrev) + '">' + icon('#i-prev') + '</button>' +
+          '<button class="carousel__nav carousel__nav--next" type="button" id="carouselNext" ' +
+            'aria-label="' + escapeHtml(UI.galleryNext) + '">' + icon('#i-next') + '</button>') +
+      '</div>' +
+      (single ? '' :
+        '<div class="carousel__dots" id="carouselDots" role="tablist" aria-label="छायाचित्रे">' +
+          images.map(function (img, i) {
+            return '<button class="carousel__dot' + (i === 0 ? ' is-active' : '') + '" type="button" ' +
+              'role="tab" aria-selected="' + (i === 0 ? 'true' : 'false') + '" ' +
+              'aria-label="' + escapeHtml(UI.galleryDot + ' ' + toMarathi(i + 1)) + '" data-dot="' + i + '"></button>';
+          }).join('') +
+        '</div>') +
+      '<p class="carousel__count" id="carouselCount" aria-live="polite">' +
+        toMarathi(1) + ' / ' + toMarathi(images.length) + '</p>';
+
+    var slides = qsa('.carousel__slide', host);
+    var dots = qsa('.carousel__dot', host);
+    var counter = qs('#carouselCount', host);
+    var index = 0;
+
+    function show(next) {
+      index = (next + images.length) % images.length;
+      slides.forEach(function (slide, i) {
+        var active = i === index;
+        slide.classList.toggle('is-active', active);
+        if (active) slide.removeAttribute('aria-hidden');
+        else slide.setAttribute('aria-hidden', 'true');
+      });
+      dots.forEach(function (dot, i) {
+        dot.classList.toggle('is-active', i === index);
+        dot.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      });
+      if (counter) counter.textContent = toMarathi(index + 1) + ' / ' + toMarathi(images.length);
+    }
+
+    var prev = qs('#carouselPrev', host);
+    var nextBtn = qs('#carouselNext', host);
+    if (prev) prev.addEventListener('click', function () { show(index - 1); stop(); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { show(index + 1); stop(); });
+    dots.forEach(function (dot) {
+      dot.addEventListener('click', function () { show(Number(dot.getAttribute('data-dot'))); stop(); });
+    });
+
+    host.addEventListener('keydown', function (event) {
+      if (event.key === 'ArrowLeft') { show(index - 1); stop(); }
+      if (event.key === 'ArrowRight') { show(index + 1); stop(); }
+    });
+
+    /* touch / swipe */
+    var startX = null;
+    var stage = qs('#carouselStage', host);
+    if (stage) {
+      stage.addEventListener('touchstart', function (e) {
+        startX = e.touches[0].clientX;
+      }, { passive: true });
+      stage.addEventListener('touchend', function (e) {
+        if (startX == null) return;
+        var dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 40) { show(index + (dx < 0 ? 1 : -1)); stop(); }
+        startX = null;
+      });
+    }
+
+    /* autoplay — never for a single image, and never against reduced motion */
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var timer = null;
+    function start() {
+      if (single || reduce || !GALLERY || !GALLERY.autoplay) return;
+      stop();
+      timer = window.setInterval(function () {
+        if (document.hidden) return;
+        show(index + 1);
+      }, Number(GALLERY.intervalMs) || 6000);
+    }
+    function stop() { if (timer) { window.clearInterval(timer); timer = null; } }
+    host.addEventListener('mouseenter', stop);
+    host.addEventListener('focusin', stop);
+    start();
   }
 
   /* ==================================================== COMPETITION PAGES */
@@ -607,6 +850,32 @@
       facts.push(fact('एकूण विषय', toMarathi(topicCount(c))));
     }
     facts.push(fact('स्वरूप', isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा'));
+    if (c.schedule) {
+      facts.push(fact(c.schedule.kind === 'online' ? 'अंतिम तारीख' : 'दिनांक',
+        shortDate(c.schedule.date)));
+    }
+
+    /* --- date, time and venue --------------------------------------------- */
+    var schedHtml = '';
+    if (c.schedule) {
+      var sch = c.schedule;
+      var rows = sch.kind === 'online'
+        ? [['व्हिडिओ पाठविण्याची अंतिम तारीख', sch.date],
+           ['स्वरूप', 'ऑनलाइन स्पर्धा (प्रत्यक्ष स्पर्धेची वेळ व ठिकाण लागू नाही)']]
+        : [['दिनांक', sch.date], ['वेळ', sch.time], ['ठिकाण', sch.venue]];
+      schedHtml =
+        '<section class="cp-block" id="schedule">' +
+          '<h2 class="cp-block__title">' + escapeHtml(UI.scheduleTitle) + '</h2>' +
+          '<ul class="sched">' +
+            rows.map(function (r) {
+              return '<li class="sched__row">' +
+                '<span class="sched__k">' + escapeHtml(r[0]) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(r[1] || '') + '</span>' +
+              '</li>';
+            }).join('') +
+          '</ul>' +
+        '</section>';
+    }
 
     /* --- eligibility ------------------------------------------------------- */
     var eligHtml = '';
@@ -658,9 +927,10 @@
 
     /* --- how to register (process, not competition rules) ------------------ */
     var steps = isTeam
-      ? ['नोंदणी पृष्ठावर आपली (संघप्रमुखाची) माहिती व इयत्ता भरा.',
+      ? ['नोंदणी पृष्ठावर आपली माहिती व इयत्ता भरा.',
          'संघ स्पर्धांमधून ही स्पर्धा निवडा — आपला गट इयत्तेनुसार आपोआप निश्चित होईल.',
-         'संघप्रमुखाचे नाव व किमान ' + toMarathi(c.teamMin) + ' सहभागी विद्यार्थ्यांची नावे आणि इयत्ता भरा.',
+         'संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) +
+           ' सहभागी विद्यार्थ्यांची नावे आणि इयत्ता भरा.',
          'माहिती तपासून नोंदणी पाठवा.']
       : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
          'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
@@ -803,7 +1073,7 @@
         '</div>' +
       '</header>' +
 
-      '<div class="cp-body">' + eligHtml + groupsHtml + formatHtml + teamHtml +
+      '<div class="cp-body">' + schedHtml + eligHtml + groupsHtml + formatHtml + teamHtml +
         criteriaHtml + processHtml + notesHtml + pendingHtml + '</div>' +
 
       '<section class="cp-others reveal">' +
@@ -815,7 +1085,7 @@
         '<div class="cp-cta__inner">' +
           '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
           '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
-            (isTeam ? '; संघप्रमुखाचे नाव व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
+            (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
                     : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
           '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
             escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
@@ -966,7 +1236,7 @@
   function capturePickState() {
     var state = {};
     qsa('[data-topic-select]').forEach(function (s) { state['topic:' + s.getAttribute('data-topic-select')] = s.value; });
-    qsa('[data-team-leader]').forEach(function (s) { state['leader:' + s.getAttribute('data-team-leader')] = s.value; });
+    qsa('[data-team-groupname]').forEach(function (s) { state['groupName:' + s.getAttribute('data-team-groupname')] = s.value; });
     qsa('[data-team-members]').forEach(function (s) { state['members:' + s.getAttribute('data-team-members')] = s.value; });
     return state;
   }
@@ -990,12 +1260,15 @@
         '<span class="comp-pick__group">' + icon('#i-check') +
           'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
         '</span>' +
-        '<label class="field" for="leader-' + c.id + '">' +
-          '<span class="field__label">संघप्रमुखाचे नाव <abbr class="req" title="आवश्यक">*</abbr></span>' +
-          '<input class="field__input" type="text" id="leader-' + c.id + '" data-team-leader="' + c.id + '"' +
-            ' value="' + escapeHtml(saved['leader:' + c.id] || '') + '"' +
-            ' aria-describedby="err-leader-' + c.id + '" />' +
-          '<span class="field__error" id="err-leader-' + c.id + '" role="alert"></span>' +
+        '<label class="field comp-pick__groupname" for="groupname-' + c.id + '">' +
+          '<span class="field__label">' + escapeHtml(UI.groupNameLabel) +
+            ' <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<input class="field__input" type="text" id="groupname-' + c.id + '" data-team-groupname="' + c.id + '"' +
+            ' value="' + escapeHtml(saved['groupName:' + c.id] || '') + '"' +
+            ' placeholder="उदा. कलावंत मंडळ"' +
+            ' aria-describedby="hint-groupname-' + c.id + ' err-groupname-' + c.id + '" />' +
+          '<span class="field__hint" id="hint-groupname-' + c.id + '">' + escapeHtml(UI.groupNameHint) + '</span>' +
+          '<span class="field__error" id="err-groupname-' + c.id + '" role="alert"></span>' +
         '</label>' +
         '<label class="field" for="members-' + c.id + '">' +
           '<span class="field__label">संघातील सर्व सहभागी विद्यार्थ्यांची नावे व इयत्ता <abbr class="req" title="आवश्यक">*</abbr></span>' +
@@ -1004,7 +1277,8 @@
             ' aria-describedby="hint-members-' + c.id + ' err-members-' + c.id + '">' +
             escapeHtml(saved['members:' + c.id] || '') + '</textarea>' +
           '<span class="field__hint" id="hint-members-' + c.id + '">किमान ' + toMarathi(c.teamMin) +
-            ' सहभागींची माहिती भरा (संघप्रमुखासह).</span>' +
+            ' सहभागींची माहिती भरा — एका ओळीत एका विद्यार्थ्याचे नाव व इयत्ता. ' +
+            'संघाचे नाव हे विद्यार्थ्याचे नाव नाही, ते वरील स्वतंत्र जागेत भरा.</span>' +
           '<span class="field__error" id="err-members-' + c.id + '" role="alert"></span>' +
         '</label>' +
         /* Only for competitions whose rules are still entirely unconfirmed —
@@ -1045,8 +1319,7 @@
         '<div class="comp-pick__top">' +
           '<span class="comp-pick__icon">' + icon(c.icon) + '</span>' +
           '<label class="check">' +
-            '<input type="checkbox" value="' + c.id + '" data-comp-checkbox="' + c.id + '"' + (checked ? ' checked' : '') + ' />' +
-            '<span class="check__box" aria-hidden="true">' + icon('#i-check') + '</span>' +
+            '<input class="check__input" type="checkbox" value="' + c.id + '" data-comp-checkbox="' + c.id + '"' + (checked ? ' checked' : '') + ' />' +
             '<span class="check__text">' +
               '<span class="comp-pick__name">' + escapeHtml(c.name) +
                 (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') + '</span>' +
@@ -1265,18 +1538,20 @@
         errors.push(setError(qs('#err-topic-' + entry.id), 'कृपया या स्पर्धेसाठी विषय निवडा.'));
       }
 
-      /* team entries: leader + the minimum number of participants */
+      /* team entries: group name + the minimum number of participants.
+         The group name is its own field, so it can never be counted as a
+         participant — only the lines of the members textarea are. */
       if (c.isTeam) {
-        var leader = qs('#leader-' + entry.id);
+        var groupInput = qs('#groupname-' + entry.id);
         var members = qs('#members-' + entry.id);
-        if (leader) {
-          var leaderValue = leader.value.trim();
-          if (!leaderValue) {
-            errors.push(setError(qs('#err-leader-' + entry.id), 'कृपया संघप्रमुखाचे नाव भरा.'));
-          } else if (leaderValue.length < 3) {
-            errors.push(setError(qs('#err-leader-' + entry.id), 'संघप्रमुखाचे नाव किमान ३ अक्षरांचे असावे.'));
+        if (groupInput) {
+          var groupValue = groupInput.value.trim();
+          if (!groupValue) {
+            errors.push(setError(qs('#err-groupname-' + entry.id), 'कृपया संघाचे नाव (Group Name) भरा.'));
+          } else if (groupValue.length < 3) {
+            errors.push(setError(qs('#err-groupname-' + entry.id), 'संघाचे नाव किमान ३ अक्षरांचे असावे.'));
           } else {
-            clearError(qs('#err-leader-' + entry.id));
+            clearError(qs('#err-groupname-' + entry.id));
           }
         }
         if (members) {
@@ -1296,7 +1571,7 @@
     if (!declaration.checked) {
       var wrap = declaration.closest('.check');
       if (wrap) wrap.classList.add('is-invalid');
-      errors.push(setError(qs('#err-declaration'), 'कृपया हमीपत्र वाचून सहमती द्या.'));
+      errors.push(setError(qs('#err-declaration'), UI.tncMissing || 'कृपया नियम व अटी वाचून सहमती द्या.'));
     }
 
     return errors.filter(Boolean);
@@ -1368,10 +1643,22 @@
   }
 
   /* --- submit -------------------------------------------------------------- */
+  /* One id per form submission: the Apps Script can use it to ignore a
+     duplicate delivery of the same request. */
+  function requestId() {
+    var stamp = Date.now().toString(36);
+    var rand = 'xxxxxxxx'.replace(/x/g, function () {
+      return Math.floor(Math.random() * 36).toString(36);
+    });
+    return 'BSF26-' + stamp + '-' + rand;
+  }
+
+  var submitting = false;      // blocks double submits / accidental re-posts
   function buildPayload(form) {
     var standardIndex = Number(qs('#standard', form).value);
     return {
       formType: 'balasanskar-festival-2026',
+      requestId: requestId(),
       submittedAt: new Date().toISOString(),
       studentName: qs('#studentName', form).value.trim(),
       standard: standardLabel(standardIndex),
@@ -1384,6 +1671,7 @@
         var c = byId(entry.id);
         var group = (c && c.eligibility) ? groupFor(c, standardIndex) : null;
         var reg = {
+          competitionId: c ? c.id : entry.id,
           competition: c ? c.name : entry.id,
           mode: c ? c.mode : 'offline',
           group: group ? groupDisplay(c, group) : '',
@@ -1391,10 +1679,10 @@
           status: (c && (!c.eligibility || !c.groups.length)) ? 'pending-confirmation' : 'registered'
         };
         if (c && c.isTeam) {
-          var leaderEl = qs('#leader-' + entry.id);
+          var groupEl = qs('#groupname-' + entry.id);
           var membersEl = qs('#members-' + entry.id);
           reg.team = {
-            leader: leaderEl ? leaderEl.value.trim() : '',
+            groupName: groupEl ? groupEl.value.trim() : '',
             members: membersEl ? membersEl.value.split('\n').map(function (l) {
               return l.trim();
             }).filter(Boolean) : []
@@ -1427,10 +1715,21 @@
       return;
     }
 
+    if (submitting) return;                 // ignore a second, accidental submit
+    submitting = true;
+
     var payload = buildPayload(form);
     var button = qs('#submitBtn');
+    var resetBtn = qs('#resetBtn');
     var originalLabel = button ? button.textContent : '';
-    if (button) { button.disabled = true; button.textContent = 'पाठवत आहे...'; }
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.innerHTML = '<span class="spinner" aria-hidden="true"></span>पाठवत आहे...';
+    }
+    if (resetBtn) resetBtn.disabled = true;
+    showStatus('info', icon('#i-info') + '<div><strong>आपली नोंदणी पाठवली जात आहे...</strong><br/>' +
+      'कृपया थांबा, पृष्ठ बंद करू नका.</div>');
 
     var controller = new AbortController();
     var timer = window.setTimeout(function () { controller.abort(); }, CONFIG.requestTimeoutMs);
@@ -1450,7 +1749,8 @@
         var data = null;
         try { data = JSON.parse(text); } catch (e) { data = null; }
         if (data && data.result === 'error') throw new Error(data.message || 'server error');
-        showSuccess(payload);
+        if (!data || data.result !== 'success') throw new Error('unexpected response');
+        showSuccess(payload, data);
         form.hidden = true;
         form.reset();
         resetSelectionUI();
@@ -1465,11 +1765,17 @@
       })
       .finally(function () {
         window.clearTimeout(timer);
-        if (button) { button.disabled = false; button.textContent = originalLabel; }
+        submitting = false;
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.textContent = originalLabel;
+        }
+        if (resetBtn) resetBtn.disabled = false;
       });
   }
 
-  function showSuccess(payload) {
+  function showSuccess(payload, response) {
     var successCard = qs('#successCard');
     var summary = qs('#successSummary');
     if (!successCard) return;
@@ -1486,6 +1792,7 @@
         ['मोबाइल क्रमांक', payload.mobile]
       ];
       if (payload.email) rows.push(['ईमेल', payload.email]);
+      if (response && response.reference) rows.push(['नोंदणी क्रमांक', response.reference]);
 
       summary.innerHTML = '<dl>' +
         rows.map(function (r) { return '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(r[1]) + '</dd>'; }).join('') +
@@ -1494,8 +1801,8 @@
         payload.registrations.map(function (r) {
           var line;
           if (r.team) {
-            line = escapeHtml(r.group) + ' · संघप्रमुख: ' + escapeHtml(r.team.leader) +
-              ' · सहभागी: ' + toMarathi(r.team.members.length);
+            line = escapeHtml(r.group) + ' · ' + escapeHtml(UI.groupNameLabel) + ': ' +
+              escapeHtml(r.team.groupName || '') + ' · सहभागी: ' + toMarathi(r.team.members.length);
           } else if (r.topic) {
             line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
           } else {
@@ -1512,7 +1819,8 @@
       pendingNote.innerHTML = icon('#i-info') +
         '<span>' + (hasPending
           ? 'ऑनलाइन स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नसल्याने, त्या नोंदणीची अंतिम पुष्टी आयोजकांकडून केली जाईल.'
-          : 'संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.') +
+          : 'संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याच्या तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील; ' +
+            'अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे.') +
         '</span>';
     }
 
@@ -1534,10 +1842,12 @@
     var page = document.body.getAttribute('data-page');
     if (page === 'home') {
       renderHomeCards();
+      renderSchedule();
       renderEligibilityOverview();
       renderExplorer();
       renderOnlineStrip();
       renderFaq();
+      initGallery();
     } else if (page === 'competition') {
       renderCompetitionPage();
     } else if (page === 'registration') {
