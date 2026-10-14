@@ -1,0 +1,3 @@
+# Local verification harness (jsdom tests) — not part of the published site.
+.qa/
+node_modules/

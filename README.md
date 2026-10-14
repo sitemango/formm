@@ -26,7 +26,8 @@ data.js                    ALL competition data — the single source of truth
 site.js                    shared header/nav/footer + page rendering + registration
 Code.gs                    Google Apps Script backend → Google Sheets
 tnc.pdf                    the terms and conditions the form links to
-1.png … 3.png              carousel photographs (add up to 15.png)
+1.jpeg … 13.jpeg           carousel photographs (add 14./15. when you have them)
+organizer.jpg              अध्यक्षांचे छायाचित्र (hero portrait)
 ```
 
 Every page loads `style.css`, `data.js` and `site.js` with **relative** paths, so any page
@@ -38,26 +39,32 @@ can be opened directly by URL and the whole thing publishes to GitHub Pages as-i
 
 ---
 
-## 1. Photo carousel — where to put `1.png` … `15.png`
+## 1. Photo carousel — `1.jpeg` … `15.jpeg`
 
 The gallery sits on the homepage, between the hero and the competition directory.
 
 **Where the images go:** the project root, next to `index.html`, named
 
 ```
-1.png   2.png   3.png   4.png   5.png   6.png   7.png   8.png
-9.png   10.png  11.png  12.png  13.png  14.png  15.png
+1.jpeg   2.jpeg   3.jpeg   4.jpeg   5.jpeg   6.jpeg   7.jpeg   8.jpeg
+9.jpeg   10.jpeg  11.jpeg  12.jpeg  13.jpeg  14.jpeg  15.jpeg
 ```
 
-The three files committed here are plain, branded placeholders — replace them with your
-festival photographs, keeping the same names.
+The thirteen photographs you uploaded are already committed as `1.jpeg` … `13.jpeg`, so
+the gallery currently shows **13 slides**. Add `14.jpeg` / `15.jpeg` (any time, same
+place) and they appear automatically — no code change.
 
 **How detection works.** On page load the script builds the list of candidate filenames
 from `window.FESTIVAL.gallery` in `data.js`, then loads each one in the background. A
 file that returns 404 or fails to decode is dropped *before* any HTML is written, so a
-missing `7.png` simply never becomes a slide — there is never a broken-image icon or an
+missing `7.jpeg` simply never becomes a slide — there is never a broken-image icon or an
 empty slide. Only the images that actually load are counted, so the counter, the dots and
 the arrows always match reality.
+
+**Any format works.** For every number the script tries `extensions` in order — currently
+`jpeg`, then `jpg`, then `png` — and uses the first file that really exists. You can
+therefore upload photographs in whatever format your camera or phone produces without
+renaming them.
 
 **Configuring it** — everything lives in `data.js`:
 
@@ -66,7 +73,7 @@ the arrows always match reality.
   "folder": "",          // "" = project root; use "photos/" to keep them in a folder
   "start": 1,            // first image number
   "count": 15,           // how many numbers to probe
-  "extension": "png",    // jpg, jpeg, webp … whatever you upload
+  "extensions": ["jpeg", "jpg", "png"],   // first one that exists wins
   "heading": "बालसंस्कार फेस्टिवल — छायाचित्र दालन",
   "lede": "…",
   "altPrefix": "बालसंस्कार फेस्टिवल २०२६ — छायाचित्र ",
@@ -97,9 +104,9 @@ the arrows always match reality.
 The registration form links to **`tnc.pdf`**, which must stay in the project root next to
 `index.html` (the link is `href="tnc.pdf"`, a relative path, so it works on GitHub Pages).
 
-* The file shipped here is a printable Marathi template with the festival dates, the group
-  rules and the submission deadline. Replace it with your official signed document — keep
-  the same filename and nothing else needs changing.
+* The file shipped here is **your own document** (uploaded १४ ऑक्टोबर २०२६, ३२९ KB). It is
+  already live: the form links straight to it. To update the terms later, replace
+  `tnc.pdf` with the new version — keep the same filename and nothing else needs changing.
 * The link opens in a new tab (`target="_blank" rel="noopener noreferrer"`).
 * The link sits **outside** the checkbox `<label>`, so clicking it can never tick the box.
 
@@ -140,6 +147,46 @@ than forcing horizontal scrolling on a phone.
 `.cp-block`, `.cp-others`, `.carousel`, `.footer__brand` are centred, while dense content —
 `.topics`, `.rules`, `.criteria`, `.steps`, `.sched`, `.srow` and every form field — stays
 left-aligned for readability.
+
+---
+
+## 3b. अध्यक्षांचे छायाचित्र — `organizer.jpg`
+
+The अध्यक्ष's portrait appears as a small circular medallion in the hero, **directly under
+the organiser name** (श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ आयोजित), with an “अध्यक्ष” badge
+and the club name beside it.
+
+**Where the image goes:** the project root, next to `index.html`, named
+
+```
+organizer.jpg
+```
+
+**Configured in `data.js`:**
+
+```js
+"organizer": {
+  "photo": "organizer.jpg",        // file name (or "photos/xyz.jpg")
+  "shape": "circle",               // "circle" = portrait crop · "square" = logo, uncropped
+  "role": "अध्यक्ष",
+  "name": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ",
+  "alt": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ — अध्यक्ष"
+}
+```
+
+**Behaviour**
+
+* The file is probed first: if `organizer.jpg` is missing the whole block stays hidden, so
+  there is never a broken-image icon or an empty frame in the hero.
+* `shape: "circle"` crops the photo to a circle with `object-fit: cover` and draws a
+  saffron/gold ring; `shape: "square"` shows it whole (`object-fit: contain`) — useful if
+  you prefer the club logo there instead of a person.
+* The `width`/`height` attributes come from the real image, so nothing jumps when it loads.
+* The portrait is 76 px (64 px on phones), the caption wraps, and the medallion shrinks
+  with the hero, so it never pushes the festival title out of place.
+* **The file currently in the repository is a neutral placeholder.** Replace it with the
+  अध्यक्ष's photograph, keeping the name `organizer.jpg`. If the photograph is one of the
+  festival pictures you uploaded, just copy that file to `organizer.jpg`.
 
 ---
 
@@ -410,7 +457,7 @@ images over the file protocol — use a server when you want to preview the gall
 2. **Settings → Pages → Build and deployment → Deploy from a branch**.
 3. Pick the branch and `/ (root)`, save → `https://<user>.github.io/<repo>/`.
 
-Remember to push the images (`1.png` …) and `tnc.pdf` too — they are part of the site, not
+Remember to push the images (`1.jpeg` …) and `tnc.pdf` too — they are part of the site, not
 build artefacts.
 
 ## Accessibility
@@ -423,6 +470,6 @@ touch targets sized for phones, and a `<noscript>` notice on every page.
 
 * `SPREADSHEET_ID` in `Code.gs` (placeholder: `PUT_YOUR_SPREADSHEET_ID_HERE`)
 * `CONFIG.registrationEndpoint` in `site.js` (empty → the form says nothing was sent)
-* your own photographs as `1.png` … `15.png`, and your official `tnc.pdf`
+* more photographs as `14.` / `15.`, and the अध्यक्षांचे छायाचित्र as `organizer.jpg`
 * registration fees, prizes, contact numbers and any further rules — the site deliberately
   shows nothing for these until you supply it

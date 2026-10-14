@@ -22,7 +22,7 @@
 
   /* ---------------------------------------------------------------- config */
   var CONFIG = {
-    registrationEndpoint: 'https://script.google.com/macros/s/AKfycbwGjbMftGjek68jzoWGDOc3D2qdtjyx9upNmz4ycqAOLV8JHIfQchdYo4FMb7hnqReH/exec',   // e.g. 'https://script.google.com/macros/s/XXXX/exec'
+    registrationEndpoint: '',   // e.g. 'https://script.google.com/macros/s/XXXX/exec'
     requestTimeoutMs: 15000
   };
 
@@ -40,6 +40,7 @@
   var FAQ = DATA.faq;
   var UI = DATA.ui;
   var GALLERY = DATA.gallery || null;
+  var ORGANIZER = DATA.organizer || null;
 
   /* ---------------------------------------------------------------- helpers */
   function qs(sel, root) { return (root || document).querySelector(sel); }
@@ -648,6 +649,35 @@
     }).join('');
   }
 
+  /* ============================================================ ORGANISER */
+  /* The अध्यक्ष photograph (organizer.jpg in the project root). It is probed
+     first: if the file is missing the whole block stays hidden, so the hero
+     never shows a broken-image icon or an empty frame. */
+  function renderOrganizerPhoto() {
+    var host = qs('#heroOrganizer');
+    if (!host || !ORGANIZER || !ORGANIZER.photo) return;
+
+    probeImage(ORGANIZER.photo).then(function (size) {
+      if (!size) { host.hidden = true; return; }
+      var circle = ORGANIZER.shape !== 'square';
+      host.className = 'hero__organizer' + (circle ? ' hero__organizer--circle' : '');
+      host.innerHTML = '' +
+        '<figure class="org-card">' +
+          '<span class="org-card__frame">' +
+            '<img class="org-card__photo" src="' + escapeHtml(ORGANIZER.photo) + '"' +
+              ' alt="' + escapeHtml(ORGANIZER.alt || ORGANIZER.name || 'अध्यक्ष') + '"' +
+              ' width="' + size.width + '" height="' + size.height + '"' +
+              ' loading="lazy" decoding="async" />' +
+          '</span>' +
+          '<figcaption class="org-card__caption">' +
+            (ORGANIZER.role ? '<span class="org-card__role">' + escapeHtml(ORGANIZER.role) + '</span>' : '') +
+            (ORGANIZER.name ? '<span class="org-card__name">' + escapeHtml(ORGANIZER.name) + '</span>' : '') +
+          '</figcaption>' +
+        '</figure>';
+      host.hidden = false;
+    }).catch(function () { host.hidden = true; });
+  }
+
   /* =============================================================== GALLERY */
   /* 1.png … 15.png are probed before anything is rendered: whichever files
      actually exist become slides, the rest are never inserted into the page. */
@@ -657,17 +687,33 @@
     if (folder && folder.charAt(folder.length - 1) !== '/') folder += '/';
     var start = Number(GALLERY.start) || 1;
     var count = Number(GALLERY.count) || 0;
-    var ext = GALLERY.extension || 'png';
+    var exts = (GALLERY.extensions && GALLERY.extensions.length)
+      ? GALLERY.extensions
+      : [GALLERY.extension || 'png'];
     var out = [];
     for (var n = start; n < start + count; n++) {
       out.push({
         number: n,
-        src: folder + n + '.' + ext,
+        /* e.g. 1.jpeg, 1.jpg, 1.png — the first file that loads wins, so the
+           gallery works whatever format the photographs were uploaded in. */
+        urls: exts.map(function (ext) { return folder + n + '.' + ext; }),
         caption: (GALLERY.captions && GALLERY.captions[String(n)]) || '',
         alt: (GALLERY.altPrefix || '') + toMarathi(n)
       });
     }
     return out;
+  }
+
+  /* resolve the first URL of a slide that actually exists */
+  function probeFirst(urls) {
+    return urls.reduce(function (chain, url) {
+      return chain.then(function (found) {
+        if (found) return found;
+        return probeImage(url).then(function (size) {
+          return size ? { url: url, width: size.width, height: size.height } : null;
+        });
+      });
+    }, Promise.resolve(null));
   }
 
   function probeImage(src) {
@@ -696,16 +742,16 @@
     var candidates = galleryCandidates();
     if (!candidates.length) { section.hidden = true; return; }
 
-    Promise.all(candidates.map(function (item) { return probeImage(item.src); }))
+    Promise.all(candidates.map(function (item) { return probeFirst(item.urls); }))
       .then(function (results) {
         var images = [];
-        results.forEach(function (size, i) {
-          if (size) images.push({
-            src: candidates[i].src,
+        results.forEach(function (found, i) {
+          if (found) images.push({
+            src: found.url,
             caption: candidates[i].caption,
             alt: candidates[i].alt,
-            width: size.width,
-            height: size.height
+            width: found.width,
+            height: found.height
           });
         });
         if (!images.length) { section.hidden = true; return; }
@@ -1847,6 +1893,7 @@
       renderExplorer();
       renderOnlineStrip();
       renderFaq();
+      renderOrganizerPhoto();
       initGallery();
     } else if (page === 'competition') {
       renderCompetitionPage();
