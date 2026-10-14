@@ -55,11 +55,21 @@ the gallery currently shows **13 slides**. Add `14.jpeg` / `15.jpeg` (any time, 
 place) and they appear automatically — no code change.
 
 **How detection works.** On page load the script builds the list of candidate filenames
-from `window.FESTIVAL.gallery` in `data.js`, then loads each one in the background. A
-file that returns 404 or fails to decode is dropped *before* any HTML is written, so a
-missing `7.jpeg` simply never becomes a slide — there is never a broken-image icon or an
-empty slide. Only the images that actually load are counted, so the counter, the dots and
-the arrows always match reality.
+from `window.FESTIVAL.gallery` in `data.js`, then checks each one in the background. A
+file that returns 404 or fails to decode is dropped before it is counted, so a missing
+`7.jpeg` never becomes a slide — there is never a broken-image icon or an empty slide.
+Only the images that actually exist are counted, so the counter, the dots and the arrows
+always match reality.
+
+It is written to fail safe:
+
+* the photographs are put on screen quickly even if that background check is slow — after
+  ~1.2 s the gallery simply shows what it has and drops the files that then turn out to be
+  missing (the slide, the dots and the counter are corrected on the spot);
+* on a browser that never reports the check back at all, the photographs still appear, and
+  any file that cannot be displayed is removed the moment the browser says so;
+* if **no** photograph can be displayed, the section stays hidden — never a row of broken
+  image icons.
 
 **Any format works.** For every number the script tries `extensions` in order — currently
 `jpeg`, then `jpg`, then `png` — and uses the first file that really exists. You can
@@ -459,6 +469,18 @@ images over the file protocol — use a server when you want to preview the gall
 
 Remember to push the images (`1.jpeg` …) and `tnc.pdf` too — they are part of the site, not
 build artefacts.
+
+### Cache-busting — bump `?v=` after a content change
+
+Every page loads its assets as `style.css?v2`, `data.js?v2` and `site.js?v2`. Browsers
+cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
+raise the number in all eleven HTML files:
+
+```bash
+sed -i 's/?v2/?v3/g' *.html
+```
+
+Visitors then get the new content immediately instead of the copy their browser saved.
 
 ## Accessibility
 

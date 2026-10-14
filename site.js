@@ -657,8 +657,7 @@
     var host = qs('#heroOrganizer');
     if (!host || !ORGANIZER || !ORGANIZER.photo) return;
 
-    probeImage(ORGANIZER.photo).then(function (size) {
-      if (!size) { host.hidden = true; return; }
+    function draw(size) {
       var circle = ORGANIZER.shape !== 'square';
       host.className = 'hero__organizer' + (circle ? ' hero__organizer--circle' : '');
       host.innerHTML = '' +
@@ -666,7 +665,7 @@
           '<span class="org-card__frame">' +
             '<img class="org-card__photo" src="' + escapeHtml(ORGANIZER.photo) + '"' +
               ' alt="' + escapeHtml(ORGANIZER.alt || ORGANIZER.name || 'अध्यक्ष') + '"' +
-              ' width="' + size.width + '" height="' + size.height + '"' +
+              (size ? ' width="' + size.width + '" height="' + size.height + '"' : '') +
               ' loading="lazy" decoding="async" />' +
           '</span>' +
           '<figcaption class="org-card__caption">' +
@@ -675,7 +674,19 @@
           '</figcaption>' +
         '</figure>';
       host.hidden = false;
-    }).catch(function () { host.hidden = true; });
+      var img = qs('.org-card__photo', host);
+      /* the photograph itself is the last word: if it cannot be displayed the
+         block disappears instead of leaving a broken-image icon behind */
+      if (img) img.addEventListener('error', function () { host.hidden = true; });
+    }
+
+    probeImage(ORGANIZER.photo).then(function (size) {
+      if (size) draw(size);
+    }).catch(function () { /* stays hidden — the file is not there */ });
+
+    /* Safety net: on a browser that never reports the probe back, still show
+       the photograph and let the image's own error hide it. */
+    window.setTimeout(function () { if (!host.innerHTML) draw(null); }, 1500);
   }
 
   /* =============================================================== GALLERY */
@@ -742,8 +753,32 @@
     var candidates = galleryCandidates();
     if (!candidates.length) { section.hidden = true; return; }
 
+    var rendered = '';
+    var settled = false;
+
+    function show(list, startIndex) {
+      if (!list.length) return;
+      var key = list.map(function (i) { return i.src; }).join('|');
+      if (key === rendered) return;                 /* already on screen */
+      buildCarousel(host, list, startIndex || 0);
+      rendered = key;
+      section.hidden = false;
+      if (typeof window.__festivalReveal === 'function') window.__festivalReveal();
+    }
+
+    /* Fallback: put every candidate on screen straight away and let each
+       image's own error handler drop the files that are not really there. */
+    function paintAll() {
+      show(candidates.map(function (c) {
+        return { src: c.urls[0], caption: c.caption, alt: c.alt, width: 0, height: 0 };
+      }));
+    }
+
+    /* Preferred path: confirm which files exist, so the counter, the dots and
+       the arrows are exact from the very first paint. */
     Promise.all(candidates.map(function (item) { return probeFirst(item.urls); }))
       .then(function (results) {
+        settled = true;
         var images = [];
         results.forEach(function (found, i) {
           if (found) images.push({
@@ -754,15 +789,17 @@
             height: found.height
           });
         });
-        if (!images.length) { section.hidden = true; return; }
-        buildCarousel(host, images);
-        section.hidden = false;
-        if (typeof window.__festivalReveal === 'function') window.__festivalReveal();
+        if (images.length) show(images);
+        else if (!rendered) section.hidden = true;
       })
-      .catch(function () { section.hidden = true; });
+      .catch(function () { settled = true; if (!rendered) section.hidden = true; });
+
+    /* If probing is slow — or a browser simply never reports back — the
+       photographs are shown anyway; missing ones are pruned on error. */
+    window.setTimeout(function () { if (!settled && !rendered) paintAll(); }, 1200);
   }
 
-  function buildCarousel(host, images) {
+  function buildCarousel(host, images, startIndex) {
     var single = images.length < 2;
 
     host.innerHTML = '' +
@@ -773,7 +810,8 @@
               (i === 0 ? '' : ' aria-hidden="true"') + ' data-slide="' + i + '">' +
               '<figure class="carousel__figure">' +
                 '<img class="carousel__img" src="' + escapeHtml(img.src) + '"' +
-                  ' alt="' + escapeHtml(img.alt) + '" width="' + img.width + '" height="' + img.height + '"' +
+                  ' alt="' + escapeHtml(img.alt) + '"' +
+                  (img.width && img.height ? ' width="' + img.width + '" height="' + img.height + '"' : '') +
                   (i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"') + ' />' +
                 (img.caption ? '<figcaption class="carousel__caption">' + escapeHtml(img.caption) + '</figcaption>' : '') +
               '</figure>' +
@@ -800,7 +838,51 @@
     var slides = qsa('.carousel__slide', host);
     var dots = qsa('.carousel__dot', host);
     var counter = qs('#carouselCount', host);
-    var index = 0;
+    var index = Math.max(0, Math.min(startIndex || 0, images.length - 1));
+
+    /* An image that cannot be displayed is dropped, and the slide, the dots and
+       the counter are rebuilt — so a missing file can never leave a broken
+       image or a wrong “१ / १५” behind. */
+    function prune(img) {
+      var slide = img.parentNode;
+      while (slide && String(slide.className).indexOf('carousel__slide') === -1) slide = slide.parentNode;
+      if (!slide) return;
+      var removed = Number(slide.getAttribute('data-slide')) || 0;
+      var keep = [];
+      qsa('.carousel__slide', host).forEach(function (s) {
+        var im = s === slide ? null : qs('.carousel__img', s);
+        if (!im) return;
+        var cap = qs('.carousel__caption', s);
+        keep.push({
+          src: im.getAttribute('src'),
+          alt: im.getAttribute('alt'),
+          width: Number(im.getAttribute('width')) || 0,
+          height: Number(im.getAttribute('height')) || 0,
+          caption: cap ? cap.textContent : ''
+        });
+      });
+      if (!keep.length) {
+        var section = host.parentNode;
+        while (section && section.id !== 'gallery') section = section.parentNode;
+        if (section) section.hidden = true;
+        host.innerHTML = '';
+        return;
+      }
+      /* keep the visitor on the same photograph, shifting left only when the
+         slide that disappeared was before the one being viewed */
+      var next = index > removed ? index - 1 : index;
+      buildCarousel(host, keep, Math.max(0, Math.min(next, keep.length - 1)));
+    }
+
+    qsa('.carousel__img', host).forEach(function (img) {
+      if (!img.getAttribute('width') && img.naturalWidth) {
+        img.setAttribute('width', img.naturalWidth);
+        img.setAttribute('height', img.naturalHeight);
+      }
+      img.addEventListener('error', function () { prune(img); });
+    });
+
+    if (startIndex) show(index);
 
     function show(next) {
       index = (next + images.length) % images.length;
