@@ -27,7 +27,7 @@ site.js                    shared header/nav/footer + page rendering + registrat
 Code.gs                    Google Apps Script backend → Google Sheets
 tnc.pdf                    the terms and conditions the form links to
 1.jpeg … 13.jpeg           carousel photographs (add 14./15. when you have them)
-organizer.jpg              अध्यक्षांचे छायाचित्र (hero portrait)
+logo-left.png              अध्यक्षांचे छायाचित्र — hero portrait (cut-out PNG)
 ```
 
 Every page loads `style.css`, `data.js` and `site.js` with **relative** paths, so any page
@@ -160,7 +160,7 @@ left-aligned for readability.
 
 ---
 
-## 3b. अध्यक्षांचे छायाचित्र — `organizer.jpg`
+## 3b. अध्यक्षांचे छायाचित्र — `logo-left.png`
 
 The अध्यक्ष's portrait appears as a small circular medallion in the hero, **directly under
 the organiser name** (श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ आयोजित), with an “अध्यक्ष” badge
@@ -169,14 +169,19 @@ and the club name beside it.
 **Where the image goes:** the project root, next to `index.html`, named
 
 ```
-organizer.jpg
+logo-left.png
 ```
+
+The file you supplied is a **cut-out portrait with a transparent background** (511 × 488,
+near-square). Inside the circular medallion the head and face are fully visible and only
+the outer edges of the shoulders are trimmed — the usual avatar crop. The transparent
+background simply lets the cream frame show through, so no white box appears around it.
 
 **Configured in `data.js`:**
 
 ```js
 "organizer": {
-  "photo": "organizer.jpg",        // file name (or "photos/xyz.jpg")
+  "photo": "logo-left.png",        // or a list: ["logo-left.png", "organizer.jpg"]
   "shape": "circle",               // "circle" = portrait crop · "square" = logo, uncropped
   "role": "अध्यक्ष",
   "name": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ",
@@ -184,9 +189,16 @@ organizer.jpg
 }
 ```
 
+`photo` accepts **one name or a list** — with a list the first file that really exists is
+used, which is handy while a new photograph is being prepared:
+
+```js
+"photo": ["logo-left.png", "organizer.jpg"],   // first one that exists wins
+```
+
 **Behaviour**
 
-* The file is probed first: if `organizer.jpg` is missing the whole block stays hidden, so
+* The file is probed first: if `logo-left.png` is missing the whole block stays hidden, so
   there is never a broken-image icon or an empty frame in the hero.
 * `shape: "circle"` crops the photo to a circle with `object-fit: cover` and draws a
   saffron/gold ring; `shape: "square"` shows it whole (`object-fit: contain`) — useful if
@@ -194,9 +206,8 @@ organizer.jpg
 * The `width`/`height` attributes come from the real image, so nothing jumps when it loads.
 * The portrait is 76 px (64 px on phones), the caption wraps, and the medallion shrinks
   with the hero, so it never pushes the festival title out of place.
-* **The file currently in the repository is a neutral placeholder.** Replace it with the
-  अध्यक्ष's photograph, keeping the name `organizer.jpg`. If the photograph is one of the
-  festival pictures you uploaded, just copy that file to `organizer.jpg`.
+* To change the picture later, replace `logo-left.png` (or point `photo` at a new file
+  name in `data.js`). Nothing else needs to be touched.
 
 ---
 
@@ -492,6 +503,6 @@ touch targets sized for phones, and a `<noscript>` notice on every page.
 
 * `SPREADSHEET_ID` in `Code.gs` (placeholder: `PUT_YOUR_SPREADSHEET_ID_HERE`)
 * `CONFIG.registrationEndpoint` in `site.js` (empty → the form says nothing was sent)
-* more photographs as `14.` / `15.`, and the अध्यक्षांचे छायाचित्र as `organizer.jpg`
+* more photographs as `14.` / `15.`
 * registration fees, prizes, contact numbers and any further rules — the site deliberately
   shows nothing for these until you supply it

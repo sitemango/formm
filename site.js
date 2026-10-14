@@ -650,20 +650,24 @@
   }
 
   /* ============================================================ ORGANISER */
-  /* The अध्यक्ष photograph (organizer.jpg in the project root). It is probed
+  /* The अध्यक्ष photograph (logo-left.png in the project root). It is probed
      first: if the file is missing the whole block stays hidden, so the hero
      never shows a broken-image icon or an empty frame. */
   function renderOrganizerPhoto() {
     var host = qs('#heroOrganizer');
     if (!host || !ORGANIZER || !ORGANIZER.photo) return;
 
-    function draw(size) {
+    /* a single file name or a list — the first one that exists wins */
+    var photos = Array.isArray(ORGANIZER.photo) ? ORGANIZER.photo : [ORGANIZER.photo];
+    if (!photos.length) return;
+
+    function draw(src, size) {
       var circle = ORGANIZER.shape !== 'square';
       host.className = 'hero__organizer' + (circle ? ' hero__organizer--circle' : '');
       host.innerHTML = '' +
         '<figure class="org-card">' +
           '<span class="org-card__frame">' +
-            '<img class="org-card__photo" src="' + escapeHtml(ORGANIZER.photo) + '"' +
+            '<img class="org-card__photo" src="' + escapeHtml(src) + '"' +
               ' alt="' + escapeHtml(ORGANIZER.alt || ORGANIZER.name || 'अध्यक्ष') + '"' +
               (size ? ' width="' + size.width + '" height="' + size.height + '"' : '') +
               ' loading="lazy" decoding="async" />' +
@@ -680,13 +684,13 @@
       if (img) img.addEventListener('error', function () { host.hidden = true; });
     }
 
-    probeImage(ORGANIZER.photo).then(function (size) {
-      if (size) draw(size);
-    }).catch(function () { /* stays hidden — the file is not there */ });
+    probeFirst(photos).then(function (found) {
+      if (found) draw(found.url, found);
+    }).catch(function () { /* stays hidden — no file is there */ });
 
     /* Safety net: on a browser that never reports the probe back, still show
        the photograph and let the image's own error hide it. */
-    window.setTimeout(function () { if (!host.innerHTML) draw(null); }, 1500);
+    window.setTimeout(function () { if (!host.innerHTML) draw(photos[0], null); }, 1500);
   }
 
   /* =============================================================== GALLERY */
