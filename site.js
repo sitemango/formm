@@ -22,7 +22,7 @@
 
   /* ---------------------------------------------------------------- config */
   var CONFIG = {
-    registrationEndpoint: '',   // e.g. 'https://script.google.com/macros/s/XXXX/exec'
+    registrationEndpoint: 'https://script.google.com/macros/s/AKfycbwGjbMftGjek68jzoWGDOc3D2qdtjyx9upNmz4ycqAOLV8JHIfQchdYo4FMb7hnqReH/exec',   // e.g. 'https://script.google.com/macros/s/XXXX/exec'
     requestTimeoutMs: 15000
   };
 
