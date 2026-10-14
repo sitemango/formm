@@ -1,0 +1,2002 @@
+/* =============================================================================
+   site.js — shared behaviour for every page of बालसंस्कार फेस्टिवल २०२६
+   -----------------------------------------------------------------------------
+   Reads window.FESTIVAL (see data.js) and renders:
+
+     • the icon sprite, header + navigation and footer (shared partials)
+     • the homepage (cards, eligibility overview, explorer, FAQ)
+     • each competition page (breadcrumb, intro, groups/topics, CTA, links)
+     • the registration page (validation + Google Apps Script submission)
+
+   Pages only need:  <body data-page="home|competition|registration"
+                           data-competition="<id>">  and the mount points.
+
+   GOOGLE SHEETS INTEGRATION
+   -------------------------
+   Set CONFIG.registrationEndpoint to the /exec URL of a Google Apps Script web
+   app. Until then the form validates but states plainly that nothing was sent.
+   See README.md for the Apps Script code.
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------- config */
+  var CONFIG = {
+    registrationEndpoint: '',   // e.g. 'https://script.google.com/macros/s/XXXX/exec'
+    requestTimeoutMs: 15000
+  };
+
+  /* Carousel images live in the project root as 1.png … 15.png (see
+     window.FESTIVAL.gallery in data.js to change the folder, the count or the
+     extension). Files that are missing never reach the page — they are probed
+     first and dropped, so no broken-image icon is ever shown. */
+
+  var DATA = window.FESTIVAL;
+  if (!DATA) { return; }
+
+  var F = DATA.festival;
+  var S = DATA.standards;
+  var C = DATA.competitions;
+  var FAQ = DATA.faq;
+  var UI = DATA.ui;
+  var GALLERY = DATA.gallery || null;
+  var ORGANIZER = DATA.organizer || null;
+
+  /* ---------------------------------------------------------------- helpers */
+  function qs(sel, root) { return (root || document).querySelector(sel); }
+  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function byId(id) { return C.filter(function (c) { return c.id === id; })[0]; }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  function standardLabel(i) { return S[i]; }
+
+  function rangeText(from, to) {
+    if (from === to) return standardLabel(from);
+    var toLabel = (from >= 1 && to >= 1) ? standardLabel(to).replace(/^इयत्ता\s*/, '') : standardLabel(to);
+    return standardLabel(from) + ' ते ' + toLabel;
+  }
+
+  /* "रविवार, २२ नोव्हेंबर २०२६" → "२२ नोव्हेंबर २०२६" (compact, for cards) */
+  function shortDate(text) {
+    return String(text || '').replace(/^[^,]+,\s*/, '');
+  }
+
+  /* "गट ३ — इयत्ता ५ वी ते ७ वी"  →  "इयत्ता ५ वी ते ७ वी" (badge carries the number) */
+  function stripGroupPrefix(label) {
+    return String(label).replace(/^गट\s*[०-९\d]+\s*[-–—]\s*/, '');
+  }
+
+  /* "गट ३ — इयत्ता ५ वी ते ७ वी" — number + range, for registration and the explorer */
+  function groupDisplay(c, group) {
+    if (!group) return '—';
+    var index = (c.groups || []).indexOf(group);
+    return 'गट ' + toMarathi(index + 1) + ' — ' + stripGroupPrefix(group.label);
+  }
+
+  function groupFor(c, standardIndex) {
+    if (!c.groups || !c.groups.length) return null;
+    for (var i = 0; i < c.groups.length; i++) {
+      var g = c.groups[i];
+      if (standardIndex >= g.from && standardIndex <= g.to) return g;
+    }
+    return null;
+  }
+
+  function isEligible(c, standardIndex) {
+    if (!c.eligibility) return true;            // unconfirmed online events: never blocked
+    return standardIndex >= c.eligibility.from && standardIndex <= c.eligibility.to;
+  }
+
+  function eligibleFor(standardIndex) {
+    return C.filter(function (c) { return c.eligibility && isEligible(c, standardIndex); });
+  }
+
+  function onlineCompetitions() {
+    return C.filter(function (c) { return c.mode === 'online'; });
+  }
+
+  function topicCount(c) {
+    return (c.groups || []).reduce(function (n, g) { return n + g.topics.length; }, 0);
+  }
+
+  var MARATHI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+  function toMarathi(n) {
+    return String(n).replace(/\d/g, function (d) { return MARATHI_DIGITS[Number(d)]; });
+  }
+
+  function scrollTo(node, block) {
+    if (node && typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: block || 'center' });
+    }
+  }
+
+  function icon(id, cls) {
+    return '<svg class="icon ' + (cls || '') + '" aria-hidden="true"><use href="' + id + '"/></svg>';
+  }
+
+  /* ----------------------------------------------------------- icon sprite */
+  /* Injected once, so every page shares a single copy of the artwork. */
+  var SPRITE = '' +
+    '<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">' +
+      '<symbol id="emblem" viewBox="0 0 48 48">' +
+        '<circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/>' +
+        '<circle cx="24" cy="24" r="18.5" fill="none" stroke="currentColor" stroke-width="0.9" stroke-dasharray="2 3.4" opacity=".8"/>' +
+        '<g fill="currentColor" opacity=".92">' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(45 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(90 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(135 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(180 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(225 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(270 24 24)"/>' +
+          '<ellipse cx="24" cy="12.5" rx="3.1" ry="6.2" transform="rotate(315 24 24)"/>' +
+        '</g>' +
+        '<circle cx="24" cy="24" r="5.4" fill="currentColor"/>' +
+        '<circle cx="24" cy="24" r="2.1" fill="#FFF7E8"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-paint" viewBox="0 0 24 24">' +
+        '<path d="M12 3.2c-4.9 0-8.8 3.3-8.8 7.4 0 2.5 1.6 4.3 3.7 5.1.5.2.8.6.8 1.1 0 .7-.6 1.2-1.3 1.2h-.6c-.6 0-1 .5-1 1.1 0 1.2 1 2.1 2.6 2.1h9.4c3.4 0 5.7-2.2 5.7-5.3 0-4.1-4.3-7.6-9.5-7.6Z"/>' +
+        '<circle cx="8.2" cy="9.4" r="1.25" fill="currentColor" stroke="none"/>' +
+        '<circle cx="13.1" cy="7.8" r="1.25" fill="currentColor" stroke="none"/>' +
+        '<circle cx="17.2" cy="10.4" r="1.25" fill="currentColor" stroke="none"/>' +
+        '<circle cx="10.2" cy="13.4" r="1.25" fill="currentColor" stroke="none"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-mehndi" viewBox="0 0 24 24">' +
+        '<path d="M4.6 19.4c1.6-5.6 5.2-10.6 12.3-14.6 1.6 6.6-2.6 13.4-8.4 16.1"/>' +
+        '<path d="M17.6 4.6c1.9 3.4 1.6 7.2-.5 10.1"/>' +
+        '<path d="M13.2 13.6c1.4 1.1 2.4 2.7 2.7 4.6"/>' +
+        '<circle cx="7.4" cy="16.2" r=".95" fill="currentColor" stroke="none"/>' +
+        '<circle cx="10.2" cy="10.4" r=".95" fill="currentColor" stroke="none"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-essay" viewBox="0 0 24 24">' +
+        '<path d="M12 6.6C10.4 5.3 8.2 4.6 5 4.6v13.2c3.2 0 5.4.7 7 2 1.6-1.3 3.8-2 7-2V4.6c-3.2 0-5.4.7-7 2Z"/>' +
+        '<path d="M12 6.6v12.8"/><path d="M16.2 8.6h2.4M16.2 12h2.4"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-speech" viewBox="0 0 24 24">' +
+        '<rect x="9" y="2.8" width="6" height="10.6" rx="3"/>' +
+        '<path d="M5.2 11.2a6.8 6.8 0 0 0 13.6 0"/><path d="M12 18v2.8"/><path d="M8.4 20.8h7.2"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-drama" viewBox="0 0 24 24">' +
+        '<path d="M4 4.6h16v8.2a8 8 0 0 1-16 0V4.6Z"/>' +
+        '<path d="M8.4 10.2h.02M15.6 10.2h.02" stroke-width="2.2" stroke-linecap="round"/>' +
+        '<path d="M8.6 15.4c1.3 1.5 5.5 1.5 6.8 0"/>' +
+        '<path d="M6.6 4.6c-.9 1-1.4 2.3-1.4 3.7M17.4 4.6c.9 1 1.4 2.3 1.4 3.7"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-rangoli" viewBox="0 0 24 24">' +
+        '<circle cx="12" cy="12" r="3.1"/>' +
+        '<g><ellipse cx="12" cy="5.6" rx="2" ry="3.5"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(45 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(90 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(135 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(180 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(225 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(270 12 12)"/>' +
+        '<ellipse cx="12" cy="5.6" rx="2" ry="3.5" transform="rotate(315 12 12)"/></g>' +
+      '</symbol>' +
+
+      '<symbol id="i-dance" viewBox="0 0 24 24">' +
+        '<circle cx="12.4" cy="5.2" r="2.2"/>' +
+        '<path d="M12.4 7.6 9.6 12l-3.4 2.6"/>' +
+        '<path d="M12.4 7.6 15.2 12l3.4 2.6"/>' +
+        '<path d="M12.4 7.6v5.2"/>' +
+        '<path d="M9.6 12.8 7.2 20.4"/>' +
+        '<path d="M15.2 12.8 17.6 20.4"/>' +
+        '<path d="M9.4 15.6h5.6"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-music" viewBox="0 0 24 24">' +
+        '<path d="M9.4 17.6V5.4l9.2-2v12.2"/>' +
+        '<circle cx="6.6" cy="17.9" r="2.7"/>' +
+        '<circle cx="15.9" cy="15.9" r="2.7"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-fashion" viewBox="0 0 24 24">' +
+        '<path d="M12 5.2a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6Z"/>' +
+        '<path d="M12 9.9v3.2"/>' +
+        '<path d="M4.4 17.4 12 10.6l7.6 6.8"/>' +
+        '<path d="M4.4 17.4h15.2"/>' +
+        '<path d="M9.2 20.4h5.6"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-online" viewBox="0 0 24 24">' +
+        '<circle cx="12" cy="12" r="8.6"/>' +
+        '<path d="M3.6 12h16.8"/>' +
+        '<path d="M12 3.4c2.4 2.6 3.6 5.6 3.6 8.6s-1.2 6-3.6 8.6c-2.4-2.6-3.6-5.6-3.6-8.6S9.6 6 12 3.4Z"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-users" viewBox="0 0 24 24">' +
+        '<circle cx="9.2" cy="8.4" r="3.2"/>' +
+        '<path d="M3.6 19.4c0-3 2.5-5.3 5.6-5.3s5.6 2.3 5.6 5.3"/>' +
+        '<path d="M16.2 5.8a3.2 3.2 0 0 1 0 6.1"/>' +
+        '<path d="M17.6 14.4c1.7.6 2.9 2.1 2.9 4"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.6l4.6 4.6L19.5 6.8"/></symbol>' +
+      '<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5"/></symbol>' +
+      '<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.6l2.5 5.3 5.7.8-4.2 4.1 1 5.8-5-2.8-5 2.8 1-5.8L3.8 9.7l5.7-.8L12 3.6Z"/></symbol>' +
+      '<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.2" y="5" width="17.6" height="16" rx="2.6"/><path d="M3.2 10h17.6M8 3.2v3.6M16 3.2v3.6"/></symbol>' +
+      '<symbol id="i-prev" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></symbol>' +
+      '<symbol id="i-next" viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></symbol>' +
+      '<symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.4"/><circle cx="8.6" cy="10" r="1.6"/><path d="M4 17l5.2-5.2L14 16l3-2.6L20.4 17"/></symbol>' +
+      '<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4M12 7.9h.02" stroke-width="2" stroke-linecap="round"/></symbol>' +
+
+      '<defs>' +
+        '<path id="m-petal" d="M0,-16 C16,-42 16,-74 0,-102 C-16,-74 -16,-42 0,-16 Z"/>' +
+        '<path id="m-petal-sm" d="M0,-10 C9,-26 9,-46 0,-64 C-9,-46 -9,-26 0,-10 Z"/>' +
+        '<circle id="m-dot" cx="0" cy="-84" r="4.2"/>' +
+      '</defs>' +
+      '<symbol id="mandala-ring1" viewBox="-110 -110 220 220"><g fill="rgba(232,137,12,.30)" stroke="rgba(193,39,45,.45)" stroke-width="1.1">' +
+        ringUses('#m-petal', 0, 30) + '</g></symbol>' +
+      '<symbol id="mandala-ring2" viewBox="-110 -110 220 220"><g fill="rgba(193,39,45,.18)" stroke="rgba(122,31,43,.32)" stroke-width="1">' +
+        ringUses('#m-petal-sm', 15, 30) + '</g></symbol>' +
+      '<symbol id="mandala-ring3" viewBox="-110 -110 220 220"><g fill="rgba(30,122,82,.55)">' +
+        ringUses('#m-dot', 0, 30) + '</g></symbol>' +
+      '<symbol id="mandala-core" viewBox="-110 -110 220 220">' +
+        '<circle cx="0" cy="0" r="20" fill="rgba(255,255,255,.85)" stroke="rgba(201,154,60,.85)" stroke-width="1.4"/>' +
+        '<circle cx="0" cy="0" r="10" fill="#C1272D" opacity=".85"/>' +
+      '</symbol>' +
+    '</svg>';
+
+  function ringUses(href, start, step) {
+    var out = '';
+    for (var a = start; a < start + 360; a += step) {
+      out += '<use href="' + href + '" transform="rotate(' + a + ')"/>';
+    }
+    return out;
+  }
+
+  function injectSprite() {
+    var host = qs('#iconSprite');
+    if (host) host.innerHTML = SPRITE;
+  }
+
+  /* ----------------------------------------------------------- shared head */
+  function onlineBadge(size) {
+    return '<span class="badge badge--online' + (size === 'sm' ? ' badge--sm' : '') + '">' +
+      icon('#i-online') +
+      '<span class="english-text badge__latin">Online Competition</span>' +
+      '<span class="badge__mr">ऑनलाइन स्पर्धा</span>' +
+    '</span>';
+  }
+
+  function renderHeader() {
+    var host = qs('#siteHeader');
+    if (!host) return;
+
+    var page = document.body.getAttribute('data-page');
+    var current = document.body.getAttribute('data-competition');
+
+    var menu = C.map(function (c) {
+      var isCurrent = (page === 'competition' && current === c.id);
+      return '<li><a class="nav__menu-link' + (isCurrent ? ' is-current' : '') + '" href="' + c.page + '"' +
+        (isCurrent ? ' aria-current="page"' : '') + '>' +
+        '<span class="nav__menu-icon" data-accent="' + c.accent + '">' + icon(c.icon) + '</span>' +
+        '<span class="nav__menu-text">' + escapeHtml(c.name) +
+        (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') +
+        '</span></a></li>';
+    }).join('');
+
+    host.className = 'site-header';
+    host.innerHTML = '' +
+      '<div class="container header__inner">' +
+        '<a class="brand" href="index.html" aria-label="' + escapeHtml(F.name) + ' — मुख्यपृष्ठ">' +
+          '<span class="brand__emblem">' + icon('#emblem') + '</span>' +
+          '<span class="brand__text">' +
+            '<span class="brand__title">' + escapeHtml(F.name) + '</span>' +
+            '<span class="brand__sub">' + escapeHtml(F.organizer) + '</span>' +
+          '</span>' +
+        '</a>' +
+        '<button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="मेनू उघडा">' +
+          '<span class="nav-toggle__bars" aria-hidden="true"><i></i><i></i><i></i></span>' +
+        '</button>' +
+        '<nav class="nav" id="primaryNav" aria-label="मुख्य नेव्हिगेशन">' +
+          '<ul class="nav__list">' +
+            '<li><a class="nav__link' + (page === 'home' ? ' is-active' : '') + '" href="index.html">' + escapeHtml(UI.navHome) + '</a></li>' +
+            '<li class="nav__item nav__item--has-menu">' +
+              '<button class="nav__link nav__link--button' + (page === 'competition' ? ' is-active' : '') + '" type="button" ' +
+                'aria-expanded="false" aria-controls="allCompetitions" id="allCompetitionsBtn">' +
+                escapeHtml(UI.navAll) + '<svg class="icon nav__chevron" aria-hidden="true"><use href="#i-arrow"/></svg>' +
+              '</button>' +
+              '<ul class="nav__menu" id="allCompetitions" aria-labelledby="allCompetitionsBtn">' + menu + '</ul>' +
+            '</li>' +
+            '<li><a class="nav__link' + (page === 'registration' ? ' is-active' : '') + '" href="registration.html">' + escapeHtml(UI.navRegister) + '</a></li>' +
+          '</ul>' +
+          '<a class="btn btn--primary nav__cta" href="registration.html">' + escapeHtml(UI.navRegister) + '</a>' +
+        '</nav>' +
+      '</div>';
+  }
+
+  function renderFooter() {
+    var host = qs('#siteFooter');
+    if (!host) return;
+
+    var links = C.map(function (c) {
+      return '<li><a href="' + c.page + '">' + escapeHtml(c.name) +
+        (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') + '</a></li>';
+    }).join('');
+
+    host.className = 'site-footer';
+    host.innerHTML = '' +
+      '<div class="container footer__inner">' +
+        '<div class="footer__top">' +
+          '<div class="footer__brand">' +
+            '<span class="brand__emblem brand__emblem--footer">' + icon('#emblem') + '</span>' +
+            '<div>' +
+              '<p class="footer__title">' + escapeHtml(F.name) + '</p>' +
+              '<p class="footer__org">आयोजक: ' + escapeHtml(F.organizer) + '</p>' +
+            '</div>' +
+          '</div>' +
+          '<nav class="footer__nav" aria-label="स्पर्धा">' +
+            '<p class="footer__nav-title">' + escapeHtml(UI.navAll) + '</p>' +
+            '<ul>' + links + '</ul>' +
+          '</nav>' +
+          '<nav class="footer__nav footer__nav--short" aria-label="तळ नेव्हिगेशन">' +
+            '<p class="footer__nav-title">उपयुक्त दुवे</p>' +
+            '<ul>' +
+              '<li><a href="index.html">मुख्यपृष्ठ</a></li>' +
+              '<li><a href="index.html#competitions">स्पर्धांची माहिती</a></li>' +
+              '<li><a href="index.html#eligibility">इयत्तेनुसार पात्रता</a></li>' +
+              '<li><a href="index.html#faq">नेहमी विचारले जाणारे प्रश्न</a></li>' +
+              '<li><a href="registration.html">नोंदणी करा</a></li>' +
+            '</ul>' +
+          '</nav>' +
+        '</div>' +
+        '<p class="footer__note">' + escapeHtml(F.tagline) + '<br/>' +
+          'स्पर्धेचा दिनांक, वेळ, ठिकाण आणि इतर तपशील आयोजकांमार्फत स्वतंत्रपणे जाहीर केले जातील.</p>' +
+        '<p class="footer__copy">© २०२६ ' + escapeHtml(F.organizer) + '. सर्व हक्क राखीव.</p>' +
+      '</div>';
+  }
+
+  /* -------------------------------------------------------------- nav logic */
+  function initNav() {
+    var toggle = qs('#navToggle');
+    var nav = qs('#primaryNav');
+    if (!toggle || !nav) return;
+
+    var close = function () {
+      nav.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', 'मेनू उघडा');
+    };
+    var open = function () {
+      nav.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', 'मेनू बंद करा');
+    };
+
+    toggle.addEventListener('click', function () {
+      if (nav.classList.contains('is-open')) close(); else open();
+    });
+
+    qsa('a[href]', nav).forEach(function (link) {
+      link.addEventListener('click', close);
+    });
+
+    /* "सर्व स्पर्धा" submenu — click on touch/keyboard, hover+focus on desktop. */
+    var menuBtn = qs('#allCompetitionsBtn');
+    var menu = qs('#allCompetitions');
+    if (menuBtn && menu) {
+      var setMenu = function (isOpen) {
+        menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        qs('.nav__item--has-menu').classList.toggle('is-open', isOpen);
+      };
+      menuBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        setMenu(menuBtn.getAttribute('aria-expanded') !== 'true');
+      });
+      document.addEventListener('click', function (event) {
+        if (!qs('.nav__item--has-menu').contains(event.target)) setMenu(false);
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') { setMenu(false); menuBtn.focus(); }
+      });
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && nav.classList.contains('is-open')) { close(); toggle.focus(); }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!nav.classList.contains('is-open')) return;
+      if (nav.contains(event.target) || toggle.contains(event.target)) return;
+      close();
+    });
+
+    window.addEventListener('resize', function () { if (window.innerWidth > 900) close(); });
+  }
+
+  function initHeaderScroll() {
+    var header = qs('.site-header');
+    if (!header) return;
+    var onScroll = function () { header.classList.toggle('is-scrolled', window.scrollY > 12); };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  function initReveal() {
+    var items = qsa('.reveal');
+    if (!items.length) return;
+    if (!('IntersectionObserver' in window)) {
+      items.forEach(function (i) { i.classList.add('is-visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
+    items.forEach(function (i) { observer.observe(i); });
+
+    /* The gallery renders asynchronously — let it hook into the same observer. */
+    window.__festivalReveal = function () {
+      qsa('.reveal:not(.is-visible)').forEach(function (i) { observer.observe(i); });
+    };
+  }
+
+  /* ============================================================== HOMEPAGE */
+  function competitionCard(c, index) {
+    return '' +
+      '<a class="ccard reveal" href="' + c.page + '" data-accent="' + c.accent + '">' +
+        '<span class="ccard__top">' +
+          '<span class="ccard__icon">' + icon(c.icon) + '</span>' +
+          (c.mode === 'online' ? onlineBadge('sm') : '<span class="tag tag--num">स्पर्धा क्र. ' + toMarathi(index + 1) + '</span>') +
+        '</span>' +
+        '<h3 class="ccard__title">' + escapeHtml(c.name) +
+          (c.nameLatin ? ' <span class="ccard__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
+        '</h3>' +
+        '<p class="ccard__desc">' + escapeHtml(c.blurb) + '</p>' +
+        '<span class="ccard__meta">' +
+          (c.eligibility
+            ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' +
+              toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
+            : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>') +
+        '</span>' +
+        (c.schedule ? '<span class="ccard__date">' + icon('#i-cal') +
+          (c.schedule.kind === 'online'
+            ? 'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(shortDate(c.schedule.date))
+            : escapeHtml(c.schedule.date) + ' · ' + escapeHtml(c.schedule.time)) +
+        '</span>' : '') +
+        '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
+      '</a>';
+  }
+
+  function renderHomeCards() {
+    var host = qs('#homeCards');
+    if (!host) return;
+    host.innerHTML = C.map(competitionCard).join('');
+  }
+
+  function renderEligibilityOverview() {
+    var host = qs('#eligibilityList');
+    if (!host) return;
+
+    host.innerHTML = C.filter(function (c) { return c.eligibility; }).map(function (c) {
+      var chips = c.groups.map(function (g, gi) {
+        return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
+          escapeHtml(stripGroupPrefix(g.label)) + '</li>';
+      }).join('');
+      return '' +
+        '<article class="erow reveal" data-accent="' + c.accent + '">' +
+          '<div class="erow__head">' +
+            '<span class="erow__icon">' + icon(c.icon) + '</span>' +
+            '<h3 class="erow__title"><a href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
+              (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') + '</h3>' +
+            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + '</strong>' +
+              (c.isTeam ? ' · संघ स्पर्धा' : '') + '</p>' +
+          '</div>' +
+          '<ul class="erow__chips">' + chips + '</ul>' +
+        '</article>';
+    }).join('');
+  }
+
+  function renderExplorer() {
+    var select = qs('#explorerStandard');
+    var results = qs('#explorerResults');
+    var hint = qs('#explorerHint');
+    if (!select || !results) return;
+
+    S.forEach(function (label, index) {
+      var option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = label;
+      select.appendChild(option);
+    });
+
+    var empty = function (message) {
+      results.innerHTML = '<p class="explorer__empty">' + escapeHtml(message) + '</p>';
+    };
+
+    select.addEventListener('change', function () {
+      if (select.value === '') {
+        empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
+        if (hint) hint.textContent = 'इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.';
+        return;
+      }
+      var index = Number(select.value);
+      if (hint) hint.innerHTML = 'निवडलेली इयत्ता: <strong>' + escapeHtml(standardLabel(index)) + '</strong>';
+
+      var list = eligibleFor(index).filter(function (c) { return !c.isTeam; }).map(function (c) {
+        var g = groupFor(c, index);
+        return '' +
+          '<li class="ex-item" data-accent="' + c.accent + '">' +
+            '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
+            '<span class="ex-item__body">' +
+              '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
+              '<span class="ex-item__group">गट: <strong>' + escapeHtml(g ? stripGroupPrefix(g.label) : '—') + '</strong>' +
+                (g && g.note ? ' · ' + escapeHtml(g.note) : '') + '</span>' +
+            '</span>' +
+            '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
+          '</li>';
+      }).join('');
+
+      var online = eligibleFor(index).filter(function (c) { return !!c.isTeam; }).map(function (c) {
+        var tg = groupFor(c, index);
+        return '<li class="ex-item ex-item--online" data-accent="' + c.accent + '">' +
+          '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
+          '<span class="ex-item__body">' +
+            '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
+            '<span class="ex-item__group">गट: <strong>' + escapeHtml(groupDisplay(c, tg)) +
+              '</strong> · संघ स्पर्धा</span>' +
+          '</span>' +
+          '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
+        '</li>';
+      }).join('');
+
+      results.innerHTML =
+        '<div class="ex-group"><p class="ex-group__title">वैयक्तिक स्पर्धा (' +
+          toMarathi(eligibleFor(index).filter(function (c) { return !c.isTeam; }).length) +
+          ')</p><ul class="ex-list">' + list + '</ul></div>' +
+        '<div class="ex-group"><p class="ex-group__title">संघ स्पर्धा — ऑनलाइन (' +
+          toMarathi(eligibleFor(index).filter(function (c) { return !!c.isTeam; }).length) +
+          ')</p><ul class="ex-list">' + online + '</ul></div>';
+    });
+
+    empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
+  }
+
+  function renderOnlineStrip() {
+    var host = qs('#onlineStrip');
+    if (!host) return;
+    var items = onlineCompetitions().map(function (c) {
+      return '<a class="online-card reveal" href="' + c.page + '" data-accent="' + c.accent + '">' +
+        '<span class="online-card__icon">' + icon(c.icon) + '</span>' +
+        '<span class="online-card__body">' +
+          '<span class="online-card__name">' + escapeHtml(c.name) +
+            ' <span class="online-card__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span></span>' +
+          '<span class="online-card__note">ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
+            ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी</span>' +
+          (c.schedule
+            ? '<span class="online-card__date">' + icon('#i-cal') +
+              'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(c.schedule.date) + '</span>'
+            : '') +
+        '</span>' +
+        '<span class="online-card__go">' + icon('#i-arrow') + '</span>' +
+      '</a>';
+    }).join('');
+    host.innerHTML = items;
+  }
+
+  /* The festival schedule, sorted by date, straight from data.js. */
+  function renderSchedule() {
+    var host = qs('#scheduleList');
+    if (!host) return;
+
+    var head = qs('#scheduleHeading');
+    if (head && UI.scheduleHomeTitle) head.textContent = UI.scheduleHomeTitle;
+    var lede = qs('#scheduleLede');
+    if (lede && UI.scheduleHomeLede) lede.textContent = UI.scheduleHomeLede;
+
+    var rows = C.filter(function (c) { return c.schedule; }).slice().sort(function (a, b) {
+      var d = a.schedule.dateISO.localeCompare(b.schedule.dateISO);
+      if (d !== 0) return d;
+      return Number(a.schedule.order) - Number(b.schedule.order);
+    });
+
+    host.innerHTML = rows.map(function (c) {
+      var sch = c.schedule;
+      var when = sch.kind === 'online'
+        ? '<span class="sched__k">' + escapeHtml(UI.deadlineLabel) + '</span>' +
+          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>'
+        : '<span class="sched__k">' + escapeHtml(UI.dateLabel) + '</span>' +
+          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>';
+      return '' +
+        '<li class="srow reveal" data-accent="' + c.accent + '">' +
+          '<span class="srow__date">' +
+            '<span class="srow__day">' + escapeHtml(shortDate(sch.date).replace(/ २०२६$/, '')) + '</span>' +
+            '<span class="srow__weekday english-text">' + escapeHtml(sch.dateISO) + '</span>' +
+          '</span>' +
+          '<span class="srow__body">' +
+            '<a class="srow__name" href="' + c.page + '">' + escapeHtml(c.name) +
+              (c.nameLatin ? ' <span class="english-text srow__latin">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
+            '</a>' +
+            '<span class="srow__meta">' + when + '</span>' +
+            (sch.kind === 'online'
+              ? '<span class="srow__meta"><span class="sched__k">स्वरूप</span>' +
+                '<span class="sched__v">ऑनलाइन स्पर्धा</span></span>'
+              : '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.timeLabel) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(sch.time) + '</span></span>' +
+                '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.venueLabel) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(sch.venue) + '</span></span>') +
+          '</span>' +
+        '</li>';
+    }).join('');
+  }
+
+  function renderFaq() {
+    var host = qs('#faqList');
+    if (!host) return;
+    host.innerHTML = FAQ.map(function (item, i) {
+      return '' +
+        '<details class="faq reveal"' + (i === 0 ? ' open' : '') + '>' +
+          '<summary><span class="faq__q">' + escapeHtml(item.q) + '</span>' +
+            '<span class="faq__toggle" aria-hidden="true">' + icon('#i-arrow') + '</span></summary>' +
+          '<div class="faq__a"><p>' + escapeHtml(item.a) + '</p></div>' +
+        '</details>';
+    }).join('');
+  }
+
+  /* ============================================================ ORGANISER */
+  /* The अध्यक्ष photograph (logo-left.png in the project root). It is probed
+     first: if the file is missing the whole block stays hidden, so the hero
+     never shows a broken-image icon or an empty frame. */
+  function renderOrganizerPhoto() {
+    var host = qs('#heroOrganizer');
+    if (!host || !ORGANIZER || !ORGANIZER.photo) return;
+
+    /* a single file name or a list — the first one that exists wins */
+    var photos = Array.isArray(ORGANIZER.photo) ? ORGANIZER.photo : [ORGANIZER.photo];
+    if (!photos.length) return;
+
+    function draw(src, size) {
+      var circle = ORGANIZER.shape !== 'square';
+      host.className = 'hero__organizer' + (circle ? ' hero__organizer--circle' : '');
+      host.innerHTML = '' +
+        '<figure class="org-card">' +
+          '<span class="org-card__frame">' +
+            '<img class="org-card__photo" src="' + escapeHtml(src) + '"' +
+              ' alt="' + escapeHtml(ORGANIZER.alt || ORGANIZER.name || 'अध्यक्ष') + '"' +
+              (size ? ' width="' + size.width + '" height="' + size.height + '"' : '') +
+              ' loading="lazy" decoding="async" />' +
+          '</span>' +
+          '<figcaption class="org-card__caption">' +
+            (ORGANIZER.role ? '<span class="org-card__role">' + escapeHtml(ORGANIZER.role) + '</span>' : '') +
+            (ORGANIZER.name ? '<span class="org-card__name">' + escapeHtml(ORGANIZER.name) + '</span>' : '') +
+          '</figcaption>' +
+        '</figure>';
+      host.hidden = false;
+      var img = qs('.org-card__photo', host);
+      /* the photograph itself is the last word: if it cannot be displayed the
+         block disappears instead of leaving a broken-image icon behind */
+      if (img) img.addEventListener('error', function () { host.hidden = true; });
+    }
+
+    probeFirst(photos).then(function (found) {
+      if (found) draw(found.url, found);
+    }).catch(function () { /* stays hidden — no file is there */ });
+
+    /* Safety net: on a browser that never reports the probe back, still show
+       the photograph and let the image's own error hide it. */
+    window.setTimeout(function () { if (!host.innerHTML) draw(photos[0], null); }, 1500);
+  }
+
+  /* =============================================================== GALLERY */
+  /* 1.png … 15.png are probed before anything is rendered: whichever files
+     actually exist become slides, the rest are never inserted into the page. */
+  function galleryCandidates() {
+    if (!GALLERY) return [];
+    var folder = GALLERY.folder || '';
+    if (folder && folder.charAt(folder.length - 1) !== '/') folder += '/';
+    var start = Number(GALLERY.start) || 1;
+    var count = Number(GALLERY.count) || 0;
+    var exts = (GALLERY.extensions && GALLERY.extensions.length)
+      ? GALLERY.extensions
+      : [GALLERY.extension || 'png'];
+    var out = [];
+    for (var n = start; n < start + count; n++) {
+      out.push({
+        number: n,
+        /* e.g. 1.jpeg, 1.jpg, 1.png — the first file that loads wins, so the
+           gallery works whatever format the photographs were uploaded in. */
+        urls: exts.map(function (ext) { return folder + n + '.' + ext; }),
+        caption: (GALLERY.captions && GALLERY.captions[String(n)]) || '',
+        alt: (GALLERY.altPrefix || '') + toMarathi(n)
+      });
+    }
+    return out;
+  }
+
+  /* resolve the first URL of a slide that actually exists */
+  function probeFirst(urls) {
+    return urls.reduce(function (chain, url) {
+      return chain.then(function (found) {
+        if (found) return found;
+        return probeImage(url).then(function (size) {
+          return size ? { url: url, width: size.width, height: size.height } : null;
+        });
+      });
+    }, Promise.resolve(null));
+  }
+
+  function probeImage(src) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      var finish = function (ok) {
+        img.onload = img.onerror = null;
+        resolve(ok && img.naturalWidth ? { width: img.naturalWidth, height: img.naturalHeight } : null);
+      };
+      img.onload = function () { finish(true); };
+      img.onerror = function () { finish(false); };
+      img.src = src;
+    });
+  }
+
+  function initGallery() {
+    var section = qs('#gallery');
+    var host = qs('#carousel');
+    if (!section || !host) return;
+
+    var gHeading = qs('#galleryHeading');
+    if (gHeading && GALLERY && GALLERY.heading) gHeading.textContent = GALLERY.heading;
+    var gLede = qs('#galleryLede');
+    if (gLede && GALLERY && GALLERY.lede) gLede.textContent = GALLERY.lede;
+
+    var candidates = galleryCandidates();
+    if (!candidates.length) { section.hidden = true; return; }
+
+    var rendered = '';
+    var settled = false;
+
+    function show(list, startIndex) {
+      if (!list.length) return;
+      var key = list.map(function (i) { return i.src; }).join('|');
+      if (key === rendered) return;                 /* already on screen */
+      buildCarousel(host, list, startIndex || 0);
+      rendered = key;
+      section.hidden = false;
+      if (typeof window.__festivalReveal === 'function') window.__festivalReveal();
+    }
+
+    /* Fallback: put every candidate on screen straight away and let each
+       image's own error handler drop the files that are not really there. */
+    function paintAll() {
+      show(candidates.map(function (c) {
+        return { src: c.urls[0], caption: c.caption, alt: c.alt, width: 0, height: 0 };
+      }));
+    }
+
+    /* Preferred path: confirm which files exist, so the counter, the dots and
+       the arrows are exact from the very first paint. */
+    Promise.all(candidates.map(function (item) { return probeFirst(item.urls); }))
+      .then(function (results) {
+        settled = true;
+        var images = [];
+        results.forEach(function (found, i) {
+          if (found) images.push({
+            src: found.url,
+            caption: candidates[i].caption,
+            alt: candidates[i].alt,
+            width: found.width,
+            height: found.height
+          });
+        });
+        if (images.length) show(images);
+        else if (!rendered) section.hidden = true;
+      })
+      .catch(function () { settled = true; if (!rendered) section.hidden = true; });
+
+    /* If probing is slow — or a browser simply never reports back — the
+       photographs are shown anyway; missing ones are pruned on error. */
+    window.setTimeout(function () { if (!settled && !rendered) paintAll(); }, 1200);
+  }
+
+  function buildCarousel(host, images, startIndex) {
+    var single = images.length < 2;
+
+    host.innerHTML = '' +
+      '<div class="carousel__stage" id="carouselStage">' +
+        '<ul class="carousel__track" id="carouselTrack">' +
+          images.map(function (img, i) {
+            return '<li class="carousel__slide' + (i === 0 ? ' is-active' : '') + '"' +
+              (i === 0 ? '' : ' aria-hidden="true"') + ' data-slide="' + i + '">' +
+              '<figure class="carousel__figure">' +
+                '<img class="carousel__img" src="' + escapeHtml(img.src) + '"' +
+                  ' alt="' + escapeHtml(img.alt) + '"' +
+                  (img.width && img.height ? ' width="' + img.width + '" height="' + img.height + '"' : '') +
+                  (i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"') + ' />' +
+                (img.caption ? '<figcaption class="carousel__caption">' + escapeHtml(img.caption) + '</figcaption>' : '') +
+              '</figure>' +
+            '</li>';
+          }).join('') +
+        '</ul>' +
+        (single ? '' :
+          '<button class="carousel__nav carousel__nav--prev" type="button" id="carouselPrev" ' +
+            'aria-label="' + escapeHtml(UI.galleryPrev) + '">' + icon('#i-prev') + '</button>' +
+          '<button class="carousel__nav carousel__nav--next" type="button" id="carouselNext" ' +
+            'aria-label="' + escapeHtml(UI.galleryNext) + '">' + icon('#i-next') + '</button>') +
+      '</div>' +
+      (single ? '' :
+        '<div class="carousel__dots" id="carouselDots" role="tablist" aria-label="छायाचित्रे">' +
+          images.map(function (img, i) {
+            return '<button class="carousel__dot' + (i === 0 ? ' is-active' : '') + '" type="button" ' +
+              'role="tab" aria-selected="' + (i === 0 ? 'true' : 'false') + '" ' +
+              'aria-label="' + escapeHtml(UI.galleryDot + ' ' + toMarathi(i + 1)) + '" data-dot="' + i + '"></button>';
+          }).join('') +
+        '</div>') +
+      '<p class="carousel__count" id="carouselCount" aria-live="polite">' +
+        toMarathi(1) + ' / ' + toMarathi(images.length) + '</p>';
+
+    var slides = qsa('.carousel__slide', host);
+    var dots = qsa('.carousel__dot', host);
+    var counter = qs('#carouselCount', host);
+    var index = Math.max(0, Math.min(startIndex || 0, images.length - 1));
+
+    /* An image that cannot be displayed is dropped, and the slide, the dots and
+       the counter are rebuilt — so a missing file can never leave a broken
+       image or a wrong “१ / १५” behind. */
+    function prune(img) {
+      var slide = img.parentNode;
+      while (slide && String(slide.className).indexOf('carousel__slide') === -1) slide = slide.parentNode;
+      if (!slide) return;
+      var removed = Number(slide.getAttribute('data-slide')) || 0;
+      var keep = [];
+      qsa('.carousel__slide', host).forEach(function (s) {
+        var im = s === slide ? null : qs('.carousel__img', s);
+        if (!im) return;
+        var cap = qs('.carousel__caption', s);
+        keep.push({
+          src: im.getAttribute('src'),
+          alt: im.getAttribute('alt'),
+          width: Number(im.getAttribute('width')) || 0,
+          height: Number(im.getAttribute('height')) || 0,
+          caption: cap ? cap.textContent : ''
+        });
+      });
+      if (!keep.length) {
+        var section = host.parentNode;
+        while (section && section.id !== 'gallery') section = section.parentNode;
+        if (section) section.hidden = true;
+        host.innerHTML = '';
+        return;
+      }
+      /* keep the visitor on the same photograph, shifting left only when the
+         slide that disappeared was before the one being viewed */
+      var next = index > removed ? index - 1 : index;
+      buildCarousel(host, keep, Math.max(0, Math.min(next, keep.length - 1)));
+    }
+
+    qsa('.carousel__img', host).forEach(function (img) {
+      if (!img.getAttribute('width') && img.naturalWidth) {
+        img.setAttribute('width', img.naturalWidth);
+        img.setAttribute('height', img.naturalHeight);
+      }
+      img.addEventListener('error', function () { prune(img); });
+    });
+
+    if (startIndex) show(index);
+
+    function show(next) {
+      index = (next + images.length) % images.length;
+      slides.forEach(function (slide, i) {
+        var active = i === index;
+        slide.classList.toggle('is-active', active);
+        if (active) slide.removeAttribute('aria-hidden');
+        else slide.setAttribute('aria-hidden', 'true');
+      });
+      dots.forEach(function (dot, i) {
+        dot.classList.toggle('is-active', i === index);
+        dot.setAttribute('aria-selected', i === index ? 'true' : 'false');
+      });
+      if (counter) counter.textContent = toMarathi(index + 1) + ' / ' + toMarathi(images.length);
+    }
+
+    var prev = qs('#carouselPrev', host);
+    var nextBtn = qs('#carouselNext', host);
+    if (prev) prev.addEventListener('click', function () { show(index - 1); stop(); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { show(index + 1); stop(); });
+    dots.forEach(function (dot) {
+      dot.addEventListener('click', function () { show(Number(dot.getAttribute('data-dot'))); stop(); });
+    });
+
+    host.addEventListener('keydown', function (event) {
+      if (event.key === 'ArrowLeft') { show(index - 1); stop(); }
+      if (event.key === 'ArrowRight') { show(index + 1); stop(); }
+    });
+
+    /* touch / swipe */
+    var startX = null;
+    var stage = qs('#carouselStage', host);
+    if (stage) {
+      stage.addEventListener('touchstart', function (e) {
+        startX = e.touches[0].clientX;
+      }, { passive: true });
+      stage.addEventListener('touchend', function (e) {
+        if (startX == null) return;
+        var dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 40) { show(index + (dx < 0 ? 1 : -1)); stop(); }
+        startX = null;
+      });
+    }
+
+    /* autoplay — never for a single image, and never against reduced motion */
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var timer = null;
+    function start() {
+      if (single || reduce || !GALLERY || !GALLERY.autoplay) return;
+      stop();
+      timer = window.setInterval(function () {
+        if (document.hidden) return;
+        show(index + 1);
+      }, Number(GALLERY.intervalMs) || 6000);
+    }
+    function stop() { if (timer) { window.clearInterval(timer); timer = null; } }
+    host.addEventListener('mouseenter', stop);
+    host.addEventListener('focusin', stop);
+    start();
+  }
+
+  /* ==================================================== COMPETITION PAGES */
+  function fact(k, v) {
+    return '<li><span class="fact__k">' + escapeHtml(k) + '</span>' +
+           '<span class="fact__v">' + escapeHtml(v) + '</span></li>';
+  }
+
+  function rulesList(items, extraClass) {
+    if (!items || !items.length) return '';
+    return '<ul class="rules ' + (extraClass || '') + '">' + items.map(function (t) {
+      return '<li>' + icon('#i-check') + '<span>' + escapeHtml(t) + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderCompetitionPage() {
+    var host = qs('#competitionPage');
+    var id = document.body.getAttribute('data-competition');
+    var c = byId(id);
+    if (!host || !c) return;
+
+    var index = C.indexOf(c);
+    var isOnline = c.mode === 'online';
+    var isTeam = !!c.isTeam;
+
+    /* --- facts ------------------------------------------------------------ */
+    var facts = [];
+    facts.push(fact('पात्रता', c.eligibility ? rangeText(c.eligibility.from, c.eligibility.to) : 'निश्चित होणे बाकी'));
+    facts.push(fact('गट', c.groups.length ? toMarathi(c.groups.length) + ' (इयत्तेनुसार)' : 'निश्चित होणे बाकी'));
+    if (isTeam) {
+      facts.push(fact('कालावधी', c.duration));
+      facts.push(fact('किमान सहभागी', toMarathi(c.teamMin)));
+    } else if (c.groups.length) {
+      facts.push(fact('एकूण विषय', toMarathi(topicCount(c))));
+    }
+    facts.push(fact('स्वरूप', isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा'));
+    if (c.schedule) {
+      facts.push(fact(c.schedule.kind === 'online' ? 'अंतिम तारीख' : 'दिनांक',
+        shortDate(c.schedule.date)));
+    }
+
+    /* --- date, time and venue --------------------------------------------- */
+    var schedHtml = '';
+    if (c.schedule) {
+      var sch = c.schedule;
+      var rows = sch.kind === 'online'
+        ? [['व्हिडिओ पाठविण्याची अंतिम तारीख', sch.date],
+           ['स्वरूप', 'ऑनलाइन स्पर्धा (प्रत्यक्ष स्पर्धेची वेळ व ठिकाण लागू नाही)']]
+        : [['दिनांक', sch.date], ['वेळ', sch.time], ['ठिकाण', sch.venue]];
+      schedHtml =
+        '<section class="cp-block" id="schedule">' +
+          '<h2 class="cp-block__title">' + escapeHtml(UI.scheduleTitle) + '</h2>' +
+          '<ul class="sched">' +
+            rows.map(function (r) {
+              return '<li class="sched__row">' +
+                '<span class="sched__k">' + escapeHtml(r[0]) + '</span>' +
+                '<span class="sched__v">' + escapeHtml(r[1] || '') + '</span>' +
+              '</li>';
+            }).join('') +
+          '</ul>' +
+        '</section>';
+    }
+
+    /* --- eligibility ------------------------------------------------------- */
+    var eligHtml = '';
+    if (c.eligibility) {
+      eligHtml =
+        '<section class="cp-block" id="eligibility-detail">' +
+          '<h2 class="cp-block__title">पात्रता</h2>' +
+          '<p class="cp-block__lead">ही स्पर्धा <strong>' +
+            escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) +
+          '</strong> मधील विद्यार्थ्यांसाठी खुली आहे. ' +
+          (isTeam
+            ? 'सहभागींचे वर्गीकरण खालील चार गटांत केले जाईल. ' + escapeHtml(c.eligibilityNote || '')
+            : 'नोंदणी करताना विद्यार्थ्याची इयत्ता निवडल्यानंतर योग्य गट आपोआप निश्चित होतो.') +
+          '</p>' +
+        '</section>';
+    }
+
+    /* --- groups (and topics, where the brief supplies them) ---------------- */
+    var groupsHtml = '';
+    if (c.groups.length) {
+      groupsHtml =
+        '<section class="cp-block" id="groups">' +
+          '<h2 class="cp-block__title">' + (isTeam ? 'गट' : 'गट आणि विषय') + '</h2>' +
+          '<p class="cp-block__lead">' + (isTeam
+            ? 'सहभागींचे वर्गीकरण खालीलप्रमाणे करण्यात येईल.'
+            : 'विद्यार्थ्याच्या इयत्तेनुसार गट आपोआप निश्चित होतो. खालील यादीत आपल्या गटाचे विषय पहा.') + '</p>' +
+          '<div class="groups">' +
+          c.groups.map(function (g, gi) {
+            var topics = (g.topics && g.topics.length)
+              ? '<ul class="topics">' + g.topics.map(function (t) {
+                  return '<li>' + icon('#i-check') + '<span>' + escapeHtml(t) + '</span></li>';
+                }).join('') + '</ul>'
+              : '';
+            return '<article class="group">' +
+              '<h3 class="group__title">' +
+                '<span class="group__badge">गट ' + toMarathi(gi + 1) + '</span>' +
+                '<span class="group__label">' + escapeHtml(stripGroupPrefix(g.label)) + '</span>' +
+                (g.note ? '<span class="group__note">' + escapeHtml(g.note) + '</span>' : '') +
+              '</h3>' + topics +
+            '</article>';
+          }).join('') +
+          '</div>' +
+          (isTeam
+            ? '<p class="cp-note">' + icon('#i-info') +
+              '<span>या स्पर्धेसाठी विषयांची यादी दिलेली नाही; संघाने आपल्या सादरीकरणाचा विषय स्वतः निवडावा.</span></p>'
+            : '') +
+        '</section>';
+    }
+
+    /* --- how to register (process, not competition rules) ------------------ */
+    var steps = isTeam
+      ? ['नोंदणी पृष्ठावर आपली माहिती व इयत्ता भरा.',
+         'संघ स्पर्धांमधून ही स्पर्धा निवडा — आपला गट इयत्तेनुसार आपोआप निश्चित होईल.',
+         'संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) +
+           ' सहभागी विद्यार्थ्यांची नावे आणि इयत्ता भरा.',
+         'माहिती तपासून नोंदणी पाठवा.']
+      : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
+         'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
+         'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.',
+         'माहिती तपासून नोंदणी पाठवा.'];
+
+    var processHtml =
+      '<section class="cp-block">' +
+        '<h2 class="cp-block__title">नोंदणी प्रक्रिया</h2>' +
+        '<ol class="steps">' +
+        steps.map(function (s, i) {
+          return '<li><span class="steps__no english-text">' + (i + 1) + '</span>' + escapeHtml(s) + '</li>';
+        }).join('') +
+        '</ol>' +
+        /* When the page carries its own "still to be announced" list, that note
+           covers this ground — don't print the same sentence twice. */
+        ((c.notes && c.notes.length) ? '' :
+        '<p class="cp-note">' + icon('#i-info') + '<span>' +
+          (isTeam
+            ? 'व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.'
+            : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
+        '</span></p>') +
+      '</section>';
+
+    /* --- submission format ------------------------------------------------- */
+    var formatHtml = '';
+    if (c.format && c.format.length) {
+      var formatItems = c.format.slice();
+      if (c.duration) formatItems.push('सादरीकरणाचा कालावधी ' + escapeHtml(c.duration) + ' असेल.');
+      formatHtml =
+        '<section class="cp-block" id="format">' +
+          '<h2 class="cp-block__title">सादरीकरणाचे स्वरूप व कालावधी</h2>' +
+          rulesList(formatItems) +
+        '</section>';
+    }
+
+    /* --- team size --------------------------------------------------------- */
+    var teamHtml = '';
+    if (c.teamRules && c.teamRules.length) {
+      teamHtml =
+        '<section class="cp-block" id="team">' +
+          '<h2 class="cp-block__title">सहभागींची संख्या</h2>' +
+          rulesList(c.teamRules) +
+        '</section>';
+    }
+
+    /* --- judging ------------------------------------------------------------ */
+    var criteriaHtml = '';
+    if (c.criteria && c.criteria.length) {
+      criteriaHtml =
+        '<section class="cp-block" id="criteria">' +
+          '<h2 class="cp-block__title">निर्णायक निकष व मूल्यमापन पद्धत</h2>' +
+          '<p class="cp-block__lead">प्रत्येक सादरीकरणाचे मूल्यमापन १०० गुणांमधून करण्यात येईल.</p>' +
+          '<table class="criteria">' +
+            '<thead><tr><th scope="col">मूल्यमापन निकष</th><th scope="col">गुण</th></tr></thead>' +
+            '<tbody>' +
+            c.criteria.map(function (r) {
+              return '<tr' + (r.total ? ' class="criteria__total"' : '') + '>' +
+                '<th scope="row">' + escapeHtml(r.label) + '</th>' +
+                '<td>' + escapeHtml(r.marks) + '</td></tr>';
+            }).join('') +
+            '</tbody>' +
+          '</table>' +
+          rulesList(c.judgingNotes, 'rules--plain') +
+        '</section>';
+    }
+
+    /* --- still to be announced --------------------------------------------- */
+    var notesHtml = '';
+    if (c.notes && c.notes.length) {
+      notesHtml =
+        '<section class="cp-block" id="notes">' +
+          '<div class="notice notice--info">' +
+            '<span class="notice__icon">' + icon('#i-info') + '</span>' +
+            '<div class="notice__body">' +
+              '<p class="notice__lead">अद्याप जाहीर होणे बाकी</p>' +
+              '<ul class="notice__list">' + c.notes.map(function (n) {
+                return '<li>' + icon('#i-check') + '<span>' + escapeHtml(n) + '</span></li>';
+              }).join('') + '</ul>' +
+              '<p class="notice__foot">वरील तपशील आयोजकांकडून निश्चित झाल्यानंतर या पृष्ठावर प्रसिद्ध केले जातील.</p>' +
+            '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    /* --- keep the generic notice for any future unconfirmed competition ---- */
+    var pendingHtml = '';
+    if (c.pending) {
+      pendingHtml =
+        '<section class="cp-block" id="status">' +
+          '<h2 class="cp-block__title">स्पर्धेची सद्यस्थिती</h2>' +
+          '<div class="notice notice--pending">' +
+            '<span class="notice__icon">' + icon('#i-info') + '</span>' +
+            '<div class="notice__body">' +
+              '<p class="notice__lead">' + escapeHtml(UI.pendingNotice) + '</p>' +
+              rulesList(c.pendingItems, 'rules--plain') +
+              '<p class="notice__foot">वरील तपशील आयोजकांकडून निश्चित झाल्यानंतर या पृष्ठावर तसेच ' +
+                'नोंदणी पृष्ठावर आपोआप दिसतील.</p>' +
+            '</div>' +
+          '</div>' +
+        '</section>';
+    }
+
+    /* --- other competitions ------------------------------------------------ */
+    var others = C.filter(function (o) { return o.id !== c.id; }).map(function (o) {
+      return '<a class="mini" href="' + o.page + '" data-accent="' + o.accent + '">' +
+        '<span class="mini__icon">' + icon(o.icon) + '</span>' +
+        '<span class="mini__name">' + escapeHtml(o.name) + '</span>' +
+        (o.mode === 'online' ? '<span class="tag tag--online english-text">Online</span>' : '') +
+      '</a>';
+    }).join('');
+
+    host.innerHTML = '' +
+      '<nav class="breadcrumb" aria-label="ब्रेडक्रंब">' +
+        '<ol>' +
+          '<li><a href="index.html">मुख्यपृष्ठ</a></li>' +
+          '<li><a href="index.html#competitions">सर्व स्पर्धा</a></li>' +
+          '<li aria-current="page">' + escapeHtml(c.name) + '</li>' +
+        '</ol>' +
+      '</nav>' +
+
+      '<header class="cp-head cp-head--' + c.layout + ' reveal">' +
+        '<div class="cp-head__decor" aria-hidden="true">' +
+          '<span class="cp-arc cp-arc--1"></span><span class="cp-arc cp-arc--2"></span>' +
+          '<span class="cp-dots"></span>' +
+        '</div>' +
+        '<div class="cp-head__inner">' +
+          '<p class="cp-head__eyebrow">स्पर्धा क्र. ' + toMarathi(index + 1) + ' · ' + escapeHtml(F.nameShort) + '</p>' +
+          (isOnline ? onlineBadge() : '') +
+          '<h1 class="cp-head__title">' + escapeHtml(c.name) +
+            (c.nameLatin ? ' <span class="cp-head__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
+          '</h1>' +
+          '<p class="cp-head__intro">' + escapeHtml(c.intro) + '</p>' +
+          '<ul class="facts">' + facts.join('') + '</ul>' +
+          '<div class="cp-head__actions">' +
+            '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
+              escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
+            '<a class="btn btn--outline btn--lg" href="index.html#competitions">सर्व स्पर्धा पहा</a>' +
+          '</div>' +
+        '</div>' +
+      '</header>' +
+
+      '<div class="cp-body">' + schedHtml + eligHtml + groupsHtml + formatHtml + teamHtml +
+        criteriaHtml + processHtml + notesHtml + pendingHtml + '</div>' +
+
+      '<section class="cp-others reveal">' +
+        '<h2 class="cp-others__title">इतर स्पर्धा</h2>' +
+        '<div class="minis">' + others + '</div>' +
+      '</section>' +
+
+      '<section class="cp-cta reveal">' +
+        '<div class="cp-cta__inner">' +
+          '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
+          '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
+            (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
+                    : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
+          '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
+            escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
+        '</div>' +
+      '</section>';
+
+    document.title = c.name + ' | ' + F.name;
+  }
+
+  /* ========================================================= REGISTRATION */
+  var selection = [];        // [{ id, topic }]
+  var preselectId = null;
+
+  function initRegistration() {
+    var form = qs('#registrationForm');
+    var standardSelect = qs('#standard');
+    if (!form || !standardSelect) return;
+
+    var configNote = qs('#configNote');
+    if (configNote && !CONFIG.registrationEndpoint) configNote.hidden = false;
+
+    S.forEach(function (label, index) {
+      var option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = label;
+      standardSelect.appendChild(option);
+    });
+
+    var mobile = qs('#mobile');
+    if (mobile) {
+      mobile.addEventListener('input', function () {
+        mobile.value = mobile.value.replace(/\D/g, '').slice(0, 10);
+      });
+    }
+
+    /* Which competition sent us here? */
+    var params = new URLSearchParams(window.location.search);
+    var requested = params.get('competition');
+    if (requested && byId(requested)) preselectId = requested;
+
+    renderOnlinePicks(null);
+    renderPreselectHint();
+    /* Online competitions have no class filter, so a ?competition=… link can be
+       honoured straight away. Class-based ones wait for the standard. */
+    applyPreselect(null);
+
+    standardSelect.addEventListener('change', function () {
+      var previous = selection.length;
+
+      if (standardSelect.value === '') {
+        selection = [];
+        hideStatus();
+        clearError(qs('#err-competitions'));
+        resetSelectionUI();
+        var pickedEmpty = qs('#pickedStandard');
+        if (pickedEmpty) { pickedEmpty.hidden = true; pickedEmpty.innerHTML = ''; }
+        return;
+      }
+
+      var index = Number(standardSelect.value);
+      /* Drop only the selections the new class is not eligible for. */
+      selection = selection.filter(function (entry) {
+        var c = byId(entry.id);
+        return c && isEligible(c, index);
+      });
+      var dropped = previous - selection.length;
+
+      hideStatus();
+      clearError(qs('#err-competitions'));
+
+      renderOfflinePicks(index);
+      renderOnlinePicks(index);
+      applyPreselect(index);
+
+      var pickedBox = qs('#pickedStandard');
+      if (pickedBox) {
+        pickedBox.hidden = false;
+        pickedBox.innerHTML = icon('#i-info') +
+          '<span><strong>' + escapeHtml(standardLabel(index)) + '</strong> साठी ' +
+          toMarathi(eligibleFor(index).length) + ' स्पर्धा उपलब्ध आहेत. आवडीच्या स्पर्धा निवडा' +
+          (dropped > 0
+            ? ' (इयत्ता बदलल्यामुळे ' + toMarathi(dropped) + ' निवड/निवडी काढून टाकल्या आहेत).'
+            : '.') + '</span>';
+      }
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      submitRegistration(form);
+    });
+
+    form.addEventListener('reset', function () {
+      window.setTimeout(function () {
+        selection = [];
+        resetSelectionUI();
+        clearAllErrors(form);
+        hideStatus();
+        renderPreselectHint();
+      }, 0);
+    });
+
+    var newBtn = qs('#newRegistrationBtn');
+    if (newBtn) {
+      newBtn.addEventListener('click', function () {
+        var success = qs('#successCard');
+        if (success) success.hidden = true;
+        form.hidden = false;
+        form.reset();
+        resetSelectionUI();
+        renderPreselectHint();
+        scrollTo(form, 'start');
+      });
+    }
+
+    qsa('.field__input', form).forEach(function (input) {
+      input.addEventListener('input', function () { clearFieldError(input); });
+      input.addEventListener('change', function () { clearFieldError(input); });
+    });
+
+    var declaration = qs('#declaration');
+    if (declaration) {
+      declaration.addEventListener('change', function () {
+        if (declaration.checked) {
+          clearError(qs('#err-declaration'));
+          var wrap = declaration.closest('.check');
+          if (wrap) wrap.classList.remove('is-invalid');
+        }
+      });
+    }
+  }
+
+  function resetSelectionUI() {
+    pickState = {};
+    var offlineList = qs('#offlineList');
+    var offlineGroup = qs('#offlineGroup');
+    var onlineList = qs('#onlineList');
+    var onlineGroup = qs('#onlineGroup');
+    if (offlineList) offlineList.innerHTML = '';
+    if (offlineGroup) offlineGroup.hidden = true;
+    if (onlineList) onlineList.innerHTML = '';
+    if (onlineGroup) onlineGroup.hidden = true;
+  }
+
+  /* --- rendering the pickable competition cards --------------------------- */
+  /* Typed topics / team details survive a re-render (e.g. when the class changes). */
+  var pickState = {};
+
+  function capturePickState() {
+    var state = {};
+    qsa('[data-topic-select]').forEach(function (s) { state['topic:' + s.getAttribute('data-topic-select')] = s.value; });
+    qsa('[data-team-groupname]').forEach(function (s) { state['groupName:' + s.getAttribute('data-team-groupname')] = s.value; });
+    qsa('[data-team-members]').forEach(function (s) { state['members:' + s.getAttribute('data-team-members')] = s.value; });
+    return state;
+  }
+
+  function teamMemberCount(value) {
+    return String(value || '').split('\n').map(function (line) { return line.trim(); })
+      .filter(Boolean).length;
+  }
+
+  function pickCard(c, standardIndex) {
+    var checked = selection.some(function (s) { return s.id === c.id; });
+    var group = (standardIndex != null && c.eligibility) ? groupFor(c, standardIndex) : null;
+    var isTeam = !!c.isTeam;
+    var hasTopics = !!(group && group.topics && group.topics.length);
+    var saved = pickState || {};
+
+    var bodyInner = '';
+
+    if (isTeam) {
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+        '</span>' +
+        '<label class="field comp-pick__groupname" for="groupname-' + c.id + '">' +
+          '<span class="field__label">' + escapeHtml(UI.groupNameLabel) +
+            ' <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<input class="field__input" type="text" id="groupname-' + c.id + '" data-team-groupname="' + c.id + '"' +
+            ' value="' + escapeHtml(saved['groupName:' + c.id] || '') + '"' +
+            ' placeholder="उदा. कलावंत मंडळ"' +
+            ' aria-describedby="hint-groupname-' + c.id + ' err-groupname-' + c.id + '" />' +
+          '<span class="field__hint" id="hint-groupname-' + c.id + '">' + escapeHtml(UI.groupNameHint) + '</span>' +
+          '<span class="field__error" id="err-groupname-' + c.id + '" role="alert"></span>' +
+        '</label>' +
+        '<label class="field" for="members-' + c.id + '">' +
+          '<span class="field__label">संघातील सर्व सहभागी विद्यार्थ्यांची नावे व इयत्ता <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<textarea class="field__input field__input--area" id="members-' + c.id + '" data-team-members="' + c.id + '"' +
+            ' rows="5" placeholder="एका ओळीत एका विद्यार्थ्याचे नाव व इयत्ता&#10;उदा. राम शामराव पाटील — इयत्ता ५ वी"' +
+            ' aria-describedby="hint-members-' + c.id + ' err-members-' + c.id + '">' +
+            escapeHtml(saved['members:' + c.id] || '') + '</textarea>' +
+          '<span class="field__hint" id="hint-members-' + c.id + '">किमान ' + toMarathi(c.teamMin) +
+            ' सहभागींची माहिती भरा — एका ओळीत एका विद्यार्थ्याचे नाव व इयत्ता. ' +
+            'संघाचे नाव हे विद्यार्थ्याचे नाव नाही, ते वरील स्वतंत्र जागेत भरा.</span>' +
+          '<span class="field__error" id="err-members-' + c.id + '" role="alert"></span>' +
+        '</label>' +
+        /* Only for competitions whose rules are still entirely unconfirmed —
+           for the team events the section note already says what is pending. */
+        (c.pending && c.notes && c.notes.length
+          ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
+          : '');
+    } else if (hasTopics) {
+      var chosen = saved['topic:' + c.id] || (selection.filter(function (s) { return s.id === c.id; })[0] || {}).topic || '';
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+          (group.note ? ' (' + escapeHtml(group.note) + ')' : '') +
+        '</span>' +
+        '<label class="field comp-pick__topic" for="topic-' + c.id + '">' +
+          '<span class="field__label">विषय निवडा <abbr class="req" title="आवश्यक">*</abbr></span>' +
+          '<span class="field__select">' +
+            '<select class="field__input" id="topic-' + c.id + '" data-topic-select="' + c.id + '" aria-describedby="err-topic-' + c.id + '">' +
+              '<option value="">कृपया विषय निवडा</option>' +
+              group.topics.map(function (t) {
+                return '<option value="' + escapeHtml(t) + '"' + (chosen === t ? ' selected' : '') + '>' +
+                  escapeHtml(t) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<svg class="icon field__chevron" aria-hidden="true"><use href="#i-arrow"/></svg>' +
+          '</span>' +
+          '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>' +
+        '</label>';
+    } else {
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+        '</span>';
+    }
+
+    return '' +
+      '<div class="comp-pick' + (checked ? ' is-selected' : '') + '" data-comp-pick="' + c.id + '" data-accent="' + c.accent + '">' +
+        '<div class="comp-pick__top">' +
+          '<span class="comp-pick__icon">' + icon(c.icon) + '</span>' +
+          '<label class="check">' +
+            '<input class="check__input" type="checkbox" value="' + c.id + '" data-comp-checkbox="' + c.id + '"' + (checked ? ' checked' : '') + ' />' +
+            '<span class="check__text">' +
+              '<span class="comp-pick__name">' + escapeHtml(c.name) +
+                (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') + '</span>' +
+              '<span class="comp-pick__elig">' +
+                (c.eligibility
+                  ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to))
+                  : 'पात्रता: निश्चित होणे बाकी') +
+                (c.mode === 'online' ? ' · ऑनलाइन' : '') +
+                (isTeam ? ' · संघ स्पर्धा' : '') +
+              '</span>' +
+            '</span>' +
+          '</label>' +
+        '</div>' +
+        '<div class="comp-pick__body" data-comp-body="' + c.id + '"' + (checked ? '' : ' hidden') + '>' +
+          bodyInner +
+        '</div>' +
+      '</div>';
+  }
+
+  function bindPicks(root) {
+    qsa('[data-comp-checkbox]', root).forEach(function (checkbox) {
+      checkbox.addEventListener('change', function () {
+        var id = checkbox.getAttribute('data-comp-checkbox');
+        var pick = qs('[data-comp-pick="' + id + '"]', root);
+        var body = qs('[data-comp-body="' + id + '"]', root);
+        var c = byId(id);
+
+        if (checkbox.checked) {
+          if (!selection.some(function (s) { return s.id === id; })) {
+            selection.push({ id: id, topic: '', mode: c ? c.mode : 'offline' });
+          }
+          if (pick) pick.classList.add('is-selected');
+          if (body) body.hidden = false;
+          clearError(qs('#err-competitions'));
+        } else {
+          selection = selection.filter(function (s) { return s.id !== id; });
+          if (pick) pick.classList.remove('is-selected');
+          if (body) {
+            body.hidden = true;
+            var select = qs('select', body);
+            if (select) select.value = '';
+            clearError(qs('#err-topic-' + id));
+            clearError(qs('#err-leader-' + id));
+            clearError(qs('#err-members-' + id));
+          }
+        }
+      });
+    });
+
+    qsa('[data-topic-select]', root).forEach(function (select) {
+      select.addEventListener('change', function () {
+        var id = select.getAttribute('data-topic-select');
+        var entry = selection.filter(function (s) { return s.id === id; })[0];
+        if (entry) entry.topic = select.value;
+        if (select.value) clearError(qs('#err-topic-' + id));
+      });
+    });
+
+    /* Team fields: clear the error as soon as the requirement is met. */
+    qsa('[data-team-leader]', root).forEach(function (input) {
+      input.addEventListener('input', function () {
+        if (input.value.trim().length >= 3) clearError(qs('#err-leader-' + input.getAttribute('data-team-leader')));
+      });
+    });
+    qsa('[data-team-members]', root).forEach(function (input) {
+      var c = byId(input.getAttribute('data-team-members'));
+      input.addEventListener('input', function () {
+        if (c && teamMemberCount(input.value) >= c.teamMin) {
+          clearError(qs('#err-members-' + input.getAttribute('data-team-members')));
+        }
+      });
+    });
+  }
+
+  function renderOfflinePicks(standardIndex) {
+    var list = qs('#offlineList');
+    var group = qs('#offlineGroup');
+    if (!list) return;
+    pickState = capturePickState();
+    var eligible = eligibleFor(standardIndex).filter(function (c) { return !c.isTeam; });
+    if (group) group.hidden = false;
+    list.innerHTML = eligible.length
+      ? eligible.map(function (c) { return pickCard(c, standardIndex); }).join('')
+      : '<p class="selection__note">या इयत्तेसाठी सध्या कोणतीही वैयक्तिक स्पर्धा उपलब्ध नाही.</p>';
+    bindPicks(list);
+  }
+
+  function renderOnlinePicks(standardIndex) {
+    var list = qs('#onlineList');
+    var group = qs('#onlineGroup');
+    if (!list) return;
+    if (standardIndex == null) {            /* still waiting for the class */
+      pickState = capturePickState();
+      list.innerHTML = '';
+      if (group) group.hidden = true;
+      return;
+    }
+    pickState = capturePickState();
+    var teams = eligibleFor(standardIndex).filter(function (c) { return !!c.isTeam; });
+    if (group) group.hidden = teams.length === 0;
+    list.innerHTML = teams.map(function (c) { return pickCard(c, standardIndex); }).join('');
+    bindPicks(list);
+  }
+
+  function renderPreselectHint() {
+    var box = qs('#preselectNote');
+    if (!box) return;
+    if (!preselectId) { box.hidden = true; box.innerHTML = ''; return; }
+    var c = byId(preselectId);
+    box.hidden = false;
+    box.innerHTML = icon('#i-check') +
+      '<span><strong>' + escapeHtml(c.name) + '</strong> या स्पर्धेसाठी तुम्ही नोंदणी पृष्ठावर आला आहात. ' +
+      (c.eligibility
+        ? 'कृपया आपली इयत्ता निवडा — ही स्पर्धा आपोआप निवडली जाईल.'
+        : 'ही ऑनलाइन स्पर्धा खाली आपोआप निवडलेली आहे.') +
+      '</span>';
+  }
+
+  function applyPreselect(standardIndex) {
+    if (!preselectId) return;
+    var c = byId(preselectId);
+    if (!c) return;
+
+    /* Online event: nothing to check against, select it right away. */
+    if (!c.eligibility) { checkPreselect(c, null); return; }
+
+    /* Class-based event: wait until the participant has picked a standard. */
+    if (standardIndex == null) return;
+
+    if (!isEligible(c, standardIndex)) {
+      showStatus('info', icon('#i-info') +
+        '<div><strong>' + escapeHtml(c.name) + ' या स्पर्धेसाठी ' + escapeHtml(standardLabel(standardIndex)) +
+        ' पात्र नाही.</strong><br/>ही स्पर्धा ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) +
+        ' मधील विद्यार्थ्यांसाठी आहे. आपण येथून इतर उपलब्ध स्पर्धा निवडू शकता.</div>');
+      return;
+    }
+    checkPreselect(c, standardIndex);
+  }
+
+  function checkPreselect(c, standardIndex) {
+    if (selection.some(function (s) { return s.id === c.id; })) return;
+
+    selection.push({ id: c.id, topic: '', mode: c.mode });
+
+    var checkbox = qs('[data-comp-checkbox="' + c.id + '"]');
+    var pick = qs('[data-comp-pick="' + c.id + '"]');
+    var body = qs('[data-comp-body="' + c.id + '"]');
+    if (checkbox) checkbox.checked = true;
+    if (pick) pick.classList.add('is-selected');
+    if (body) body.hidden = false;
+
+    var note = qs('#preselectNote');
+    if (note) {
+      var group = (c.eligibility && standardIndex != null) ? groupFor(c, standardIndex) : null;
+      note.innerHTML = icon('#i-check') + '<span><strong>' + escapeHtml(c.name) + '</strong> आपोआप निवडली आहे. ' +
+        (group
+          ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
+            (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.')
+          : 'या ऑनलाइन स्पर्धेची पात्रता व नियम निश्चित होणे बाकी आहेत.') +
+        '</span>';
+    }
+  }
+
+  /* --- validation --------------------------------------------------------- */
+  var MOBILE_RE = /^[6-9]\d{9}$/;
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  function validateForm(form) {
+    var errors = [];
+    clearAllErrors(form);
+
+    var studentName = qs('#studentName', form);
+    var standard = qs('#standard', form);
+    var schoolName = qs('#schoolName', form);
+    var city = qs('#city', form);
+    var guardianName = qs('#guardianName', form);
+    var mobile = qs('#mobile', form);
+    var email = qs('#email', form);
+
+    var nameValue = studentName.value.trim();
+    if (!nameValue) errors.push(setFieldError(studentName, 'कृपया विद्यार्थ्याचे पूर्ण नाव भरा.'));
+    else if (nameValue.length < 3) errors.push(setFieldError(studentName, 'नाव किमान ३ अक्षरांचे असावे.'));
+
+    if (!standard.value) errors.push(setFieldError(standard, 'कृपया इयत्ता निवडा.'));
+
+    var schoolValue = schoolName.value.trim();
+    if (!schoolValue) errors.push(setFieldError(schoolName, 'कृपया शाळेचे नाव भरा.'));
+    else if (schoolValue.length < 2) errors.push(setFieldError(schoolName, 'कृपया शाळेचे पूर्ण नाव भरा.'));
+
+    if (!city.value.trim()) errors.push(setFieldError(city, 'कृपया गाव / शहर भरा.'));
+
+    var guardianValue = guardianName.value.trim();
+    if (!guardianValue) errors.push(setFieldError(guardianName, 'कृपया पालकांचे किंवा संरक्षकाचे नाव भरा.'));
+    else if (guardianValue.length < 3) errors.push(setFieldError(guardianName, 'नाव किमान ३ अक्षरांचे असावे.'));
+
+    var mobileValue = mobile.value.replace(/\D/g, '');
+    if (!mobileValue) errors.push(setFieldError(mobile, 'कृपया संपर्कासाठी मोबाइल क्रमांक भरा.'));
+    else if (!MOBILE_RE.test(mobileValue)) {
+      errors.push(setFieldError(mobile, 'कृपया वैध १० अंकी मोबाइल क्रमांक भरा (६, ७, ८ किंवा ९ ने सुरू होणारा).'));
+    }
+
+    var emailValue = email.value.trim();
+    if (emailValue && !EMAIL_RE.test(emailValue)) errors.push(setFieldError(email, 'कृपया वैध ईमेल पत्ता भरा.'));
+
+    if (!selection.length) errors.push(setError(qs('#err-competitions'), 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.'));
+
+    var standardIndex = standard.value === '' ? null : Number(standard.value);
+
+    selection.forEach(function (entry) {
+      var c = byId(entry.id);
+      if (!c) return;
+
+      /* topic: only required when the assigned group actually has topics */
+      var group = (c.eligibility && standardIndex != null) ? groupFor(c, standardIndex) : null;
+      if (group && group.topics && group.topics.length && !entry.topic) {
+        errors.push(setError(qs('#err-topic-' + entry.id), 'कृपया या स्पर्धेसाठी विषय निवडा.'));
+      }
+
+      /* team entries: group name + the minimum number of participants.
+         The group name is its own field, so it can never be counted as a
+         participant — only the lines of the members textarea are. */
+      if (c.isTeam) {
+        var groupInput = qs('#groupname-' + entry.id);
+        var members = qs('#members-' + entry.id);
+        if (groupInput) {
+          var groupValue = groupInput.value.trim();
+          if (!groupValue) {
+            errors.push(setError(qs('#err-groupname-' + entry.id), 'कृपया संघाचे नाव (Group Name) भरा.'));
+          } else if (groupValue.length < 3) {
+            errors.push(setError(qs('#err-groupname-' + entry.id), 'संघाचे नाव किमान ३ अक्षरांचे असावे.'));
+          } else {
+            clearError(qs('#err-groupname-' + entry.id));
+          }
+        }
+        if (members) {
+          var count = teamMemberCount(members.value);
+          if (count < c.teamMin) {
+            errors.push(setError(qs('#err-members-' + entry.id),
+              'कृपया किमान ' + toMarathi(c.teamMin) + ' सहभागी विद्यार्थ्यांची नावे व इयत्ता भरा (सध्या ' +
+              toMarathi(count) + ').'));
+          } else {
+            clearError(qs('#err-members-' + entry.id));
+          }
+        }
+      }
+    });
+
+    var declaration = qs('#declaration', form);
+    if (!declaration.checked) {
+      var wrap = declaration.closest('.check');
+      if (wrap) wrap.classList.add('is-invalid');
+      errors.push(setError(qs('#err-declaration'), UI.tncMissing || 'कृपया नियम व अटी वाचून सहमती द्या.'));
+    }
+
+    return errors.filter(Boolean);
+  }
+
+  function setFieldError(input, message) {
+    var field = input.closest('.field');
+    if (field) field.classList.add('is-invalid');
+    var target = qs('#err-' + input.id);
+    if (target) target.textContent = message;
+    input.setAttribute('aria-invalid', 'true');
+    return message;
+  }
+
+  function setError(node, message) {
+    if (!node) return message;
+    node.textContent = message;
+    node.style.display = 'flex';
+    return message;
+  }
+
+  function clearFieldError(input) {
+    var field = input.closest('.field');
+    if (field) field.classList.remove('is-invalid');
+    var target = qs('#err-' + input.id);
+    if (target) target.textContent = '';
+    input.removeAttribute('aria-invalid');
+  }
+
+  function clearError(node) {
+    if (!node) return;
+    node.textContent = '';
+    node.style.display = '';
+  }
+
+  function clearAllErrors(form) {
+    qsa('.field', form).forEach(function (f) { f.classList.remove('is-invalid'); });
+    qsa('.field__error', form).forEach(function (e) { e.textContent = ''; e.style.display = ''; });
+    qsa('.check', form).forEach(function (c) { c.classList.remove('is-invalid'); });
+    qsa('[aria-invalid]', form).forEach(function (i) { i.removeAttribute('aria-invalid'); });
+  }
+
+  function hideStatus() {
+    var box = qs('#formStatus');
+    if (!box) return;
+    box.hidden = true;
+    box.className = 'form__status';
+    box.innerHTML = '';
+  }
+
+  function showStatus(type, html) {
+    var box = qs('#formStatus');
+    if (!box) return;
+    box.hidden = false;
+    box.className = 'form__status form__status--' + type;
+    box.innerHTML = html;
+  }
+
+  function focusFirstError() {
+    var firstInvalid = qs('.field.is-invalid .field__input, .check.is-invalid input, .field__error[style*="flex"]');
+    if (firstInvalid) {
+      scrollTo(firstInvalid, 'center');
+      if (typeof firstInvalid.focus === 'function') {
+        window.setTimeout(function () { firstInvalid.focus({ preventScroll: true }); }, 380);
+      }
+      return;
+    }
+    scrollTo(qs('#formStatus'), 'center');
+  }
+
+  /* --- submit -------------------------------------------------------------- */
+  /* One id per form submission: the Apps Script can use it to ignore a
+     duplicate delivery of the same request. */
+  function requestId() {
+    var stamp = Date.now().toString(36);
+    var rand = 'xxxxxxxx'.replace(/x/g, function () {
+      return Math.floor(Math.random() * 36).toString(36);
+    });
+    return 'BSF26-' + stamp + '-' + rand;
+  }
+
+  var submitting = false;      // blocks double submits / accidental re-posts
+  function buildPayload(form) {
+    var standardIndex = Number(qs('#standard', form).value);
+    return {
+      formType: 'balasanskar-festival-2026',
+      requestId: requestId(),
+      submittedAt: new Date().toISOString(),
+      studentName: qs('#studentName', form).value.trim(),
+      standard: standardLabel(standardIndex),
+      schoolName: qs('#schoolName', form).value.trim(),
+      city: qs('#city', form).value.trim(),
+      guardianName: qs('#guardianName', form).value.trim(),
+      mobile: qs('#mobile', form).value.replace(/\D/g, ''),
+      email: qs('#email', form).value.trim(),
+      registrations: selection.map(function (entry) {
+        var c = byId(entry.id);
+        var group = (c && c.eligibility) ? groupFor(c, standardIndex) : null;
+        var reg = {
+          competitionId: c ? c.id : entry.id,
+          competition: c ? c.name : entry.id,
+          mode: c ? c.mode : 'offline',
+          group: group ? groupDisplay(c, group) : '',
+          topic: entry.topic || '',
+          status: (c && (!c.eligibility || !c.groups.length)) ? 'pending-confirmation' : 'registered'
+        };
+        if (c && c.isTeam) {
+          var groupEl = qs('#groupname-' + entry.id);
+          var membersEl = qs('#members-' + entry.id);
+          reg.team = {
+            groupName: groupEl ? groupEl.value.trim() : '',
+            members: membersEl ? membersEl.value.split('\n').map(function (l) {
+              return l.trim();
+            }).filter(Boolean) : []
+          };
+        }
+        return reg;
+      })
+    };
+  }
+
+  function submitRegistration(form) {
+    var errors = validateForm(form);
+
+    if (errors.length) {
+      showStatus('error', icon('#i-info') +
+        '<div><strong>कृपया खालील चुका दुरुस्त करा:</strong><ul>' +
+        errors.map(function (e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') +
+        '</ul></div>');
+      focusFirstError();
+      return;
+    }
+
+    hideStatus();
+
+    if (!CONFIG.registrationEndpoint) {
+      showStatus('info', icon('#i-info') +
+        '<div><strong>नोंदणी पाठवली गेली नाही.</strong><br/>' +
+        'सध्या ऑनलाइन नोंदणीसाठी Google Apps Script endpoint कॉन्फिगर केलेला नाही, त्यामुळे आपली माहिती ' +
+        'कुठेही पाठवली गेली नाही. कृपया आयोजकांशी थेट संपर्क करून नोंदणी पूर्ण करा.</div>');
+      return;
+    }
+
+    if (submitting) return;                 // ignore a second, accidental submit
+    submitting = true;
+
+    var payload = buildPayload(form);
+    var button = qs('#submitBtn');
+    var resetBtn = qs('#resetBtn');
+    var originalLabel = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.innerHTML = '<span class="spinner" aria-hidden="true"></span>पाठवत आहे...';
+    }
+    if (resetBtn) resetBtn.disabled = true;
+    showStatus('info', icon('#i-info') + '<div><strong>आपली नोंदणी पाठवली जात आहे...</strong><br/>' +
+      'कृपया थांबा, पृष्ठ बंद करू नका.</div>');
+
+    var controller = new AbortController();
+    var timer = window.setTimeout(function () { controller.abort(); }, CONFIG.requestTimeoutMs);
+
+    fetch(CONFIG.registrationEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      redirect: 'follow'
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.text();
+      })
+      .then(function (text) {
+        var data = null;
+        try { data = JSON.parse(text); } catch (e) { data = null; }
+        if (data && data.result === 'error') throw new Error(data.message || 'server error');
+        if (!data || data.result !== 'success') throw new Error('unexpected response');
+        showSuccess(payload, data);
+        form.hidden = true;
+        form.reset();
+        resetSelectionUI();
+        renderPreselectHint();
+      })
+      .catch(function (error) {
+        var message = (error && error.name === 'AbortError')
+          ? 'विनंती पूर्ण होण्यास जास्त वेळ लागला. कृपया आपले इंटरनेट कनेक्शन तपासून पुन्हा प्रयत्न करा.'
+          : 'नोंदणी पाठवताना तांत्रिक अडचण आली. आपली माहिती सुरक्षितपणे पोहोचली नसल्यास कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.';
+        showStatus('error', icon('#i-info') +
+          '<div><strong>नोंदणी पूर्ण झाली नाही.</strong><br/>' + escapeHtml(message) + '</div>');
+      })
+      .finally(function () {
+        window.clearTimeout(timer);
+        submitting = false;
+        if (button) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.textContent = originalLabel;
+        }
+        if (resetBtn) resetBtn.disabled = false;
+      });
+  }
+
+  function showSuccess(payload, response) {
+    var successCard = qs('#successCard');
+    var summary = qs('#successSummary');
+    if (!successCard) return;
+
+    var hasPending = payload.registrations.some(function (r) { return r.status === 'pending-confirmation'; });
+    var hasTeam = payload.registrations.some(function (r) { return r.mode === 'online'; });
+
+    if (summary) {
+      var rows = [
+        ['विद्यार्थ्याचे नाव', payload.studentName],
+        ['इयत्ता', payload.standard],
+        ['शाळा', payload.schoolName],
+        ['गाव / शहर', payload.city],
+        ['मोबाइल क्रमांक', payload.mobile]
+      ];
+      if (payload.email) rows.push(['ईमेल', payload.email]);
+      if (response && response.reference) rows.push(['नोंदणी क्रमांक', response.reference]);
+
+      summary.innerHTML = '<dl>' +
+        rows.map(function (r) { return '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(r[1]) + '</dd>'; }).join('') +
+        '</dl>' +
+        '<dl class="success__picks">' +
+        payload.registrations.map(function (r) {
+          var line;
+          if (r.team) {
+            line = escapeHtml(r.group) + ' · ' + escapeHtml(UI.groupNameLabel) + ': ' +
+              escapeHtml(r.team.groupName || '') + ' · सहभागी: ' + toMarathi(r.team.members.length);
+          } else if (r.topic) {
+            line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
+          } else {
+            line = escapeHtml(r.group);
+          }
+          return '<dt>' + escapeHtml(r.competition) + '</dt><dd>' + line + '</dd>';
+        }).join('') +
+        '</dl>';
+    }
+
+    var pendingNote = qs('#successPendingNote');
+    if (pendingNote) {
+      pendingNote.hidden = !(hasPending || hasTeam);
+      pendingNote.innerHTML = icon('#i-info') +
+        '<span>' + (hasPending
+          ? 'ऑनलाइन स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नसल्याने, त्या नोंदणीची अंतिम पुष्टी आयोजकांकडून केली जाईल.'
+          : 'संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याच्या तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील; ' +
+            'अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे.') +
+        '</span>';
+    }
+
+    successCard.hidden = false;
+    scrollTo(successCard, 'start');
+  }
+
+  /* ------------------------------------------------------------------ boot */
+  function init() {
+    /* Guard against the script ever being included twice. */
+    if (window.__festivalInitialised) return;
+    window.__festivalInitialised = true;
+
+    renderHeader();
+    renderFooter();
+    initNav();
+    initHeaderScroll();
+
+    var page = document.body.getAttribute('data-page');
+    if (page === 'home') {
+      renderHomeCards();
+      renderSchedule();
+      renderEligibilityOverview();
+      renderExplorer();
+      renderOnlineStrip();
+      renderFaq();
+      renderOrganizerPhoto();
+      initGallery();
+    } else if (page === 'competition') {
+      renderCompetitionPage();
+    } else if (page === 'registration') {
+      initRegistration();
+    }
+
+    initReveal();
+  }
+
+  /* The sprite lives at the top of <body> and site.js at the end of it, so the
+     artwork can be injected straight away — no icon flash. */
+  injectSprite();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
