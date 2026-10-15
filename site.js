@@ -664,6 +664,19 @@
     function draw(src, size) {
       var circle = ORGANIZER.shape !== 'square';
       host.className = 'hero__organizer' + (circle ? ' hero__organizer--circle' : '');
+      var roleHtml = ORGANIZER.role ? '<span class="org-card__role">' + escapeHtml(ORGANIZER.role) + '</span>' : '';
+      var nameHtml = ORGANIZER.name ? '<span class="org-card__name">' + escapeHtml(ORGANIZER.name) + '</span>' : '';
+      var clubHtml = ORGANIZER.club ? '<span class="org-card__club">' + escapeHtml(ORGANIZER.club) + '</span>' : '';
+      var phoneHtml = '';
+      if (ORGANIZER.phone) {
+        var cleanPhone = String(ORGANIZER.phone).replace(/[^\d+]/g, '');
+        var telHref = 'tel:' + cleanPhone;
+        var displayPhone = escapeHtml(ORGANIZER.phoneDisplay || ORGANIZER.phone);
+        phoneHtml = '<a class="org-card__phone" href="' + telHref + '">' +
+          '<svg class="icon icon--phone" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>' +
+          '<span>' + displayPhone + '</span>' +
+        '</a>';
+      }
       host.innerHTML = '' +
         '<figure class="org-card">' +
           '<span class="org-card__frame">' +
@@ -673,8 +686,10 @@
               ' loading="lazy" decoding="async" />' +
           '</span>' +
           '<figcaption class="org-card__caption">' +
-            (ORGANIZER.role ? '<span class="org-card__role">' + escapeHtml(ORGANIZER.role) + '</span>' : '') +
-            (ORGANIZER.name ? '<span class="org-card__name">' + escapeHtml(ORGANIZER.name) + '</span>' : '') +
+            roleHtml +
+            nameHtml +
+            clubHtml +
+            phoneHtml +
           '</figcaption>' +
         '</figure>';
       host.hidden = false;

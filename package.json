@@ -1,0 +1,12 @@
+{
+  "name": "formm",
+  "version": "1.0.0",
+  "description": "बालसंस्कार फेस्टिवल २०२६ festival site",
+  "private": true,
+  "scripts": {
+    "test": "node tests/verify.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
+  }
+}
