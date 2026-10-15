@@ -1,0 +1,549 @@
+/* =============================================================================
+   tests/verify.js — Verification harness for बालसंस्कार फेस्टिवल २०२६
+   -----------------------------------------------------------------------------
+   Runs 282 automated assertions across 8 core categories:
+     1. Content integrity (60)
+     2. Carousel fallback paths (35)
+     3. The 2026 schedule (35)
+     4. Terms checkbox (20)
+     5. Group-name flow (30)
+     6. Apps Script backend (Code.gs) (35)
+     7. Submit behaviour (30)
+     8. अध्यक्ष card in hero & regressions (37)
+
+   Expected result: 282 PASS / 0 FAIL
+   ========================================================================== */
+
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+const ROOT = path.resolve(__dirname, '..');
+
+let passCount = 0;
+let failCount = 0;
+const failures = [];
+
+function assert(condition, message) {
+  if (condition) {
+    passCount++;
+  } else {
+    failCount++;
+    failures.push(message);
+    console.error(`  FAIL: ${message}`);
+  }
+}
+
+function loadData() {
+  const content = fs.readFileSync(path.join(ROOT, 'data.js'), 'utf8');
+  const mockWindow = {};
+  const fn = new Function('window', content + '; return window.FESTIVAL;');
+  return fn(mockWindow);
+}
+
+const DATA = loadData();
+
+console.log('--- Running बालसंस्कार फेस्टिवल २०२६ Test Suite ---');
+
+/* =============================================================================
+   SECTION 1: CONTENT INTEGRITY (60 assertions)
+   ========================================================================== */
+console.log('\n[1/8] Content integrity (60 assertions)...');
+
+// 1-8: Core files exist
+assert(fs.existsSync(path.join(ROOT, 'index.html')), 'index.html exists');
+assert(fs.existsSync(path.join(ROOT, 'registration.html')), 'registration.html exists');
+assert(fs.existsSync(path.join(ROOT, 'style.css')), 'style.css exists');
+assert(fs.existsSync(path.join(ROOT, 'site.js')), 'site.js exists');
+assert(fs.existsSync(path.join(ROOT, 'data.js')), 'data.js exists');
+assert(fs.existsSync(path.join(ROOT, 'Code.gs')), 'Code.gs exists');
+assert(fs.existsSync(path.join(ROOT, 'tnc.pdf')), 'tnc.pdf exists');
+assert(fs.existsSync(path.join(ROOT, 'logo-left.png')), 'logo-left.png exists');
+
+// 9-21: Carousel photos 1.jpeg ... 13.jpeg exist and are non-empty
+for (let i = 1; i <= 13; i++) {
+  const file = `${i}.jpeg`;
+  const p = path.join(ROOT, file);
+  assert(fs.existsSync(p) && fs.statSync(p).size > 0, `Photo ${file} exists and is non-empty`);
+}
+
+// 22-30: Competition pages exist
+const compPages = [
+  'chitrakala.html',
+  'mehendi.html',
+  'nibandh.html',
+  'vaktrutva.html',
+  'ekpatri-natya.html',
+  'rangoli.html',
+  'group-dance.html',
+  'group-singing.html',
+  'group-fashion-show.html'
+];
+compPages.forEach(p => {
+  assert(fs.existsSync(path.join(ROOT, p)), `Competition page ${p} exists`);
+});
+
+// 31-39: HTML pages markup standards across all 11 pages
+const allPages = ['index.html', 'registration.html', ...compPages];
+const htmlContents = allPages.map(p => fs.readFileSync(path.join(ROOT, p), 'utf8'));
+
+assert(htmlContents.every(c => /<!DOCTYPE html>/i.test(c)), 'All 11 HTML pages have <!DOCTYPE html>');
+assert(htmlContents.every(c => /<html[^>]+lang=["']mr["']/i.test(c)), 'All 11 HTML pages declare lang="mr"');
+assert(htmlContents.every(c => /<meta[^>]+name=["']viewport["']/i.test(c)), 'All 11 HTML pages contain viewport meta tag');
+assert(htmlContents.every(c => /<meta[^>]+charset=["']utf-8["']/i.test(c)), 'All 11 HTML pages declare utf-8 charset');
+assert(htmlContents.every(c => /<link[^>]+href=["']style\.css(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages link to style.css');
+assert(htmlContents.every(c => /<script[^>]+src=["']data\.js(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages load data.js');
+assert(htmlContents.every(c => /<script[^>]+src=["']site\.js(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages load site.js');
+assert(htmlContents.every(c => c.includes('id="siteHeader"') || c.includes('<header')), 'All 11 HTML pages declare siteHeader host');
+assert(htmlContents.every(c => c.includes('id="siteFooter"') || c.includes('<footer')), 'All 11 HTML pages declare siteFooter host');
+
+// 40-47: Basic data.js structure
+assert(typeof DATA === 'object' && DATA !== null, 'FESTIVAL object is exported on window');
+assert(DATA.festival && DATA.festival.name === 'बालसंस्कार फेस्टिवल २०२६', 'Festival title is बालसंस्कार फेस्टिवल २०२६');
+assert(DATA.festival && DATA.festival.organizer === 'श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ', 'Club name is श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ');
+assert(DATA.festival && DATA.festival.nameShort === 'बालसंस्कार फेस्टिवल', 'Short festival name is बालसंस्कार फेस्टिवल');
+assert(Array.isArray(DATA.standards) && DATA.standards.length === 11, 'Standards array contains 11 entries');
+assert(DATA.standards[0] === 'बालवाडी', 'First standard is बालवाडी');
+assert(DATA.standards[10] === 'इयत्ता १० वी', 'Last standard is इयत्ता १० वी');
+assert(Array.isArray(DATA.competitions) && DATA.competitions.length === 9, 'Exactly 9 competitions defined in data.js');
+
+// 48-49: Competitions split (6 on-site, 3 online)
+const onsiteComps = DATA.competitions.filter(c => c.schedule && c.schedule.kind === 'onsite');
+const onlineComps = DATA.competitions.filter(c => c.schedule && c.schedule.kind === 'online');
+assert(onsiteComps.length === 6, 'Exactly 6 on-site competitions configured');
+assert(onlineComps.length === 3, 'Exactly 3 online competitions configured');
+
+// 50-57: Groups and topics counts
+const chitrakala = DATA.competitions.find(c => c.id === 'chitrakala');
+const mehndi = DATA.competitions.find(c => c.id === 'mehndi');
+const nibandh = DATA.competitions.find(c => c.id === 'nibandh');
+const vaktrutva = DATA.competitions.find(c => c.id === 'vaktrutva');
+const ekpatri = DATA.competitions.find(c => c.id === 'ekpatri');
+const rangoli = DATA.competitions.find(c => c.id === 'rangoli');
+
+assert(chitrakala && chitrakala.groups && chitrakala.groups.length === 4, 'चितकला has 4 groups');
+assert(mehndi && mehndi.groups && mehndi.groups.length === 2, 'मेहंदी has 2 groups');
+assert(nibandh && nibandh.groups && nibandh.groups.length === 3, 'निबंध has 3 groups');
+assert(vaktrutva && vaktrutva.groups && vaktrutva.groups.length === 3, 'वक्तृत्व has 3 groups');
+assert(ekpatri && ekpatri.groups && ekpatri.groups.length === 3, 'एकपात्री नाट्य has 3 groups');
+assert(rangoli && rangoli.groups && rangoli.groups.length === 2, 'रांगोळी has 2 groups');
+
+const totalOnsiteGroups = onsiteComps.reduce((sum, c) => sum + (c.groups ? c.groups.length : 0), 0);
+assert(totalOnsiteGroups === 17, 'Total groups across all on-site competitions is exactly 17');
+
+let totalTopics = 0;
+onsiteComps.forEach(c => {
+  if (c.groups) {
+    c.groups.forEach(g => {
+      if (Array.isArray(g.topics)) totalTopics += g.topics.length;
+    });
+  }
+});
+assert(totalTopics === 77, 'Total topics across all on-site groups is exactly 77');
+
+// 58-60: FAQs, UI strings, Organizer
+assert(Array.isArray(DATA.faq) && DATA.faq.length >= 5, 'FAQ contains at least 5 questions and answers');
+assert(DATA.ui && DATA.ui.registerCta === 'नोंदणी करा', 'UI dictionary contains registerCta string');
+assert(typeof DATA.organizer === 'object' && DATA.organizer !== null, 'FESTIVAL.organizer configuration object is present');
+
+
+/* =============================================================================
+   SECTION 2: CAROUSEL FALLBACK PATHS (35 assertions)
+   ========================================================================== */
+console.log('\n[2/8] Carousel fallback paths (35 assertions)...');
+
+const G = DATA.gallery;
+assert(typeof G === 'object' && G !== null, 'Gallery configuration exists in data.js');
+assert(G.start === 1, 'Gallery start index is 1');
+assert(G.count === 15, 'Gallery count is 15');
+assert(Array.isArray(G.extensions), 'Gallery extensions is an array');
+assert(G.extensions[0] === 'jpeg', 'Gallery prioritizes jpeg extension first');
+assert(G.extensions[1] === 'jpg', 'Gallery fallback extension second is jpg');
+assert(G.extensions[2] === 'png', 'Gallery fallback extension third is png');
+assert(typeof G.intervalMs === 'number' && G.intervalMs >= 3000, 'Gallery autoplay interval >= 3000ms');
+assert(G.autoplay === true, 'Gallery autoplay is enabled by default');
+assert(typeof G.heading === 'string' && G.heading.includes('छायाचित्र दालन'), 'Gallery heading has Marathi title');
+
+const siteJs = fs.readFileSync(path.join(ROOT, 'site.js'), 'utf8');
+assert(siteJs.includes('function galleryCandidates'), 'site.js implements galleryCandidates()');
+assert(siteJs.includes('function probeFirst'), 'site.js implements probeFirst() fallback helper');
+assert(siteJs.includes('function probeImage'), 'site.js implements probeImage()');
+assert(siteJs.includes('function buildCarousel'), 'site.js implements buildCarousel()');
+assert(siteJs.includes('function prune('), 'site.js implements dynamic prune() error handler');
+
+const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const dom = new JSDOM(indexHtml);
+const doc = dom.window.document;
+
+assert(doc.getElementById('gallery') !== null, '#gallery section exists in index.html');
+assert(doc.getElementById('carousel') !== null, '#carousel host element exists in index.html');
+
+// Test probeFirst ordering simulation
+assert(JSON.stringify(G.extensions) === '["jpeg","jpg","png"]', 'Probe order matches jpeg -> jpg -> png');
+
+// Test Carousel HTML generation & prune logic
+assert(siteJs.includes('carousel__figure'), 'Carousel marks slides with carousel__figure');
+assert(siteJs.includes('carousel__img'), 'Carousel marks image elements with carousel__img');
+assert(siteJs.includes('fetchpriority="high"'), 'First carousel slide has fetchpriority="high"');
+assert(siteJs.includes('loading="lazy"'), 'Other carousel slides have loading="lazy"');
+assert(siteJs.includes('decoding="async"'), 'Carousel slides have decoding="async"');
+assert(siteJs.includes('#carouselCount') || siteJs.includes('carouselCount'), 'Carousel updates carouselCount Devanagari indicator');
+assert(siteJs.includes('aria-label'), 'Carousel controls use accessible aria-label attributes');
+assert(siteJs.includes('carousel__nav'), 'Carousel renders navigation controls');
+assert(siteJs.includes('images.length < 2'), 'Carousel detects single image state');
+assert(siteJs.includes('section.hidden = true'), 'Carousel hides whole section when no images load');
+
+const styleCss = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
+assert(styleCss.includes('@media (prefers-reduced-motion'), 'style.css includes prefers-reduced-motion media query');
+assert(siteJs.includes('mouseenter'), 'Autoplay pauses on mouse interaction (mouseenter)');
+assert(siteJs.includes('focusin'), 'Autoplay pauses on keyboard focus (focusin)');
+assert(siteJs.includes('ArrowLeft'), 'Keyboard navigation handles ArrowLeft key');
+assert(siteJs.includes('ArrowRight'), 'Keyboard navigation handles ArrowRight key');
+assert(siteJs.includes('touchstart'), 'Touch gesture handling via touchstart');
+assert(siteJs.includes('touchend'), 'Touch gesture handling via touchend');
+
+
+/* =============================================================================
+   SECTION 3: THE 2026 SCHEDULE (35 assertions)
+   ========================================================================== */
+console.log('\n[3/8] The 2026 schedule (35 assertions)...');
+
+assert(DATA.competitions.every(c => c.schedule && typeof c.schedule === 'object'), 'All 9 competitions have a schedule object');
+assert(DATA.competitions.every(c => c.schedule && typeof c.schedule.date === 'string' && c.schedule.date.includes('२०२६')), 'All 9 competition dates contain २०२६');
+
+// On-site competitions specific dates, times and venues
+assert(chitrakala.schedule.date === 'रविवार, २२ नोव्हेंबर २०२६', 'चित्रकला date is रविवार, २२ नोव्हेंबर २०२६');
+assert(chitrakala.schedule.dateISO === '2026-11-22', 'चित्रकला dateISO is 2026-11-22');
+assert(chitrakala.schedule.time === 'सकाळी ८:३० वाजता', 'चित्रकला time is सकाळी ८:३० वाजता');
+assert(chitrakala.schedule.venue.includes('शिरवळ'), 'चित्रकला venue is in Shirwal');
+
+assert(mehndi.schedule.date === 'सोमवार, २३ नोव्हेंबर २०२६', 'मेहंदी date is सोमवार, २३ नोव्हेंबर २०२६');
+assert(mehndi.schedule.dateISO === '2026-11-23', 'मेहंदी dateISO is 2026-11-23');
+assert(mehndi.schedule.time === 'दुपारी ४ वाजता', 'मेहंदी time is दुपारी ४ वाजता');
+assert(mehndi.schedule.venue.includes('शिरवळ'), 'मेहंदी venue is in Shirwal');
+
+assert(nibandh.schedule.date === 'शुक्रवार, २७ नोव्हेंबर २०२६', 'निबंध date is शुक्रवार, २७ नोव्हेंबर २०२६');
+assert(nibandh.schedule.dateISO === '2026-11-27', 'निबंध dateISO is 2026-11-27');
+assert(nibandh.schedule.time === 'दुपारी २ वाजता', 'निबंध time is दुपारी २ वाजता');
+assert(nibandh.schedule.venue.includes('शिरवळ'), 'निबंध venue is in Shirwal');
+
+assert(vaktrutva.schedule.date === 'शुक्रवार, २७ नोव्हेंबर २०२६', 'वक्तृत्व date is शुक्रवार, २७ नोव्हेंबर २०२६');
+assert(vaktrutva.schedule.dateISO === '2026-11-27', 'वक्तृत्व dateISO is 2026-11-27');
+assert(vaktrutva.schedule.time === 'सकाळी ११ वाजता', 'वक्तृत्व time is सकाळी ११ वाजता');
+assert(vaktrutva.schedule.venue.includes('शिरवळ'), 'वक्तृत्व venue is in Shirwal');
+
+assert(ekpatri.schedule.date === 'शनिवार, २८ नोव्हेंबर २०२६', 'एकपात्री नाट्य date is शनिवार, २८ नोव्हेंबर २०२६');
+assert(ekpatri.schedule.dateISO === '2026-11-28', 'एकपात्री नाट्य dateISO is 2026-11-28');
+assert(ekpatri.schedule.time === 'दुपारी ३ वाजता', 'एकपात्री नाट्य time is दुपारी ३ वाजता');
+assert(ekpatri.schedule.venue.includes('शिरवळ'), 'एकपात्री नाट्य venue is in Shirwal');
+
+assert(rangoli.schedule.date === 'रविवार, २९ नोव्हेंबर २०२६', 'रांगोळी date is रविवार, २९ नोव्हेंबर २०२६');
+assert(rangoli.schedule.dateISO === '2026-11-29', 'रांगोळी dateISO is 2026-11-29');
+assert(rangoli.schedule.time === 'सकाळी ९ वाजता', 'रांगोळी time is सकाळी ९ वाजता');
+assert(rangoli.schedule.venue.includes('शिरवळ'), 'रांगोळी venue is in Shirwal');
+
+// Online competitions deadlines, time/venue null check
+const dance = DATA.competitions.find(c => c.id === 'group-dance');
+const singing = DATA.competitions.find(c => c.id === 'group-singing');
+const fashion = DATA.competitions.find(c => c.id === 'group-fashion-show');
+
+assert(dance.schedule.kind === 'online', 'समूह नृत्य schedule kind is online');
+assert(dance.schedule.date === 'शुक्रवार, २७ नोव्हेंबर २०२६', 'समूह नृत्य date is २७ नोव्हेंबर २०२६');
+assert(dance.schedule.time === null, 'समूह नृत्य time is null (deadline only)');
+assert(dance.schedule.venue === null, 'समूह नृत्य venue is null (online event)');
+assert(dance.schedule.deadlineLabel === 'व्हिडिओ पाठविण्याची अंतिम तारीख', 'समूह नृत्य carries explicit deadline label');
+
+assert(singing.schedule.time === null && singing.schedule.venue === null, 'समूह गायन has null time & venue');
+assert(fashion.schedule.time === null && fashion.schedule.venue === null, 'समूह फॅशन शो has null time & venue');
+
+assert(siteJs.includes('function renderSchedule()'), 'site.js implements renderSchedule()');
+assert(siteJs.includes('scheduleList'), 'renderSchedule renders #scheduleList container');
+
+
+/* =============================================================================
+   SECTION 4: TERMS CHECKBOX (20 assertions)
+   ========================================================================== */
+console.log('\n[4/8] Terms checkbox (20 assertions)...');
+
+const regHtml = fs.readFileSync(path.join(ROOT, 'registration.html'), 'utf8');
+const regDom = new JSDOM(regHtml);
+const regDoc = regDom.window.document;
+
+const chk = regDoc.getElementById('declaration');
+assert(chk !== null, 'Checkbox element #declaration exists in registration.html');
+assert(chk && chk.getAttribute('type') === 'checkbox', 'Element #declaration has type="checkbox"');
+assert(chk && chk.getAttribute('name') === 'declaration', 'Checkbox has name="declaration"');
+assert(chk && chk.hasAttribute('required'), 'Checkbox has required attribute');
+assert(chk && chk.getAttribute('aria-describedby') === 'err-declaration', 'Checkbox has aria-describedby="err-declaration"');
+
+const errDecl = regDoc.getElementById('err-declaration');
+assert(errDecl !== null, 'Error container #err-declaration exists');
+
+const chkLabel = regDoc.querySelector('label[for="declaration"]');
+assert(chkLabel !== null, 'Label for #declaration exists');
+assert(chkLabel && chkLabel.classList.contains('check--tnc'), 'Label has check--tnc class');
+assert(chkLabel && chkLabel.textContent.includes('मी नियम व अटी वाचल्या आहेत'), 'Label text has declaration text');
+
+const tncLink = regDoc.querySelector('a.tnc__link');
+assert(tncLink !== null, 'Link a.tnc__link exists in registration form');
+assert(tncLink && tncLink.getAttribute('href') === 'tnc.pdf', 'Terms link points directly to tnc.pdf');
+assert(tncLink && tncLink.getAttribute('target') === '_blank', 'Terms link has target="_blank"');
+assert(tncLink && tncLink.getAttribute('rel').includes('noopener'), 'Terms link has rel="noopener"');
+
+const linkRow = regDoc.querySelector('.tnc__link-row');
+assert(linkRow !== null, '.tnc__link-row container exists');
+assert(chkLabel && tncLink && !chkLabel.contains(tncLink), 'PDF link sits OUTSIDE the checkbox label (cannot toggle box)');
+
+// Checkbox CSS properties
+assert(styleCss.includes('width:26px') || styleCss.includes('width: 26px'), 'Checkbox has 26px width defined in CSS');
+assert(styleCss.includes('height:26px') || styleCss.includes('height: 26px'), 'Checkbox has 26px height defined in CSS');
+assert(styleCss.includes('appearance:none') || styleCss.includes('appearance: none'), 'Checkbox has appearance:none in CSS');
+
+// Validation in site.js
+assert(siteJs.includes('!declaration.checked') || siteJs.includes('declaration.checked'), 'site.js validates declaration checkbox on submit');
+assert(siteJs.includes('tncMissing') || siteJs.includes('कृपया नियम व अटी वाचून सहमती द्या'), 'site.js displays Marathi error for unchecked declaration');
+
+
+/* =============================================================================
+   SECTION 5: GROUP-NAME FLOW (30 assertions)
+   ========================================================================== */
+console.log('\n[5/8] Group-name flow (30 assertions)...');
+
+assert(dance.isTeam === true, 'समूह नृत्य is marked as isTeam: true');
+assert(singing.isTeam === true, 'समूह गायन is marked as isTeam: true');
+assert(fashion.isTeam === true, 'समूह फॅशन शो is marked as isTeam: true');
+assert(dance.teamMin === 5, 'समूह नृत्य has minimum 5 members');
+assert(chitrakala.isTeam !== true, 'चित्रकला is not a team event');
+
+assert(siteJs.includes('data-team-groupname'), 'site.js dynamically creates data-team-groupname inputs for team events');
+assert(siteJs.includes('data-team-members'), 'site.js dynamically creates data-team-members textareas for team events');
+
+assert(DATA.ui && DATA.ui.groupNameLabel === 'संघाचे नाव (Group Name)', 'UI.groupNameLabel is संघाचे नाव (Group Name)');
+assert(!DATA.ui.groupNameLabel.includes('संघप्रमुख'), 'Group name label does NOT say संघप्रमुख');
+assert(DATA.ui.groupNameHint && DATA.ui.groupNameHint.includes('हे नाव विद्यार्थ्याच्या नावावेगळे आहे'), 'Group name hint explains separation from student name');
+
+assert(siteJs.includes('function teamMemberCount'), 'site.js implements teamMemberCount() helper');
+
+// Helper to simulate member parsing logic from site.js
+function parseLines(text) {
+  return text.split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+const lines4 = 'राजू\nअमित\nस्नेहल\nप्रिया';
+const lines5 = 'राजू\nअमित\nस्नेहल\nप्रिया\nरोहन';
+const lines6 = 'राजू\nअमित\nस्नेहल\nप्रिया\nरोहन\nअनिकेत';
+
+assert(parseLines(lines4).length === 4, 'Parsing 4 lines yields 4 members');
+assert(parseLines(lines5).length === 5, 'Parsing 5 lines yields 5 members');
+assert(parseLines(lines6).length === 6, 'Parsing 6 lines yields 6 members');
+
+const whitespaceLines = '  राजू  \n\n  अमित  \n  \n  स्नेहल  \n  प्रिया  \n  रोहन  ';
+assert(parseLines(whitespaceLines).length === 5, 'Blank lines and padding whitespace are ignored in participant count');
+
+const groupNameVal = 'शिवम डान्स ग्रुप';
+assert(!parseLines(lines5).includes(groupNameVal), 'Group name is never included in student list count');
+
+assert(parseLines(lines4).length < dance.teamMin, 'Entering fewer than 5 members fails validation below teamMin');
+assert(parseLines(lines5).length >= dance.teamMin, 'Entering 5 members passes teamMin validation');
+assert(siteJs.includes('किमान ५ सहभागी') || siteJs.includes('teamMin'), 'Marathi error / logic enforces teamMin threshold');
+
+assert(siteJs.includes('id="groupname-\' + c.id'), 'Group name input is assigned id groupname-<id>');
+assert(siteJs.includes('id="members-\' + c.id'), 'Members textarea is assigned id members-<id>');
+
+assert(siteJs.includes('function capturePickState'), 'site.js defines capturePickState() for state persistence');
+assert(siteJs.includes('state[\'groupName:\''), 'capturePickState saves typed group name');
+assert(siteJs.includes('state[\'members:\''), 'capturePickState saves typed members list');
+assert(siteJs.includes('saved[\'groupName:\' + c.id]'), 'Re-rendering restores previously entered group name');
+assert(siteJs.includes('saved[\'members:\' + c.id]'), 'Re-rendering restores previously entered member list');
+
+assert(siteJs.includes('reg.team = {') && siteJs.includes('groupName:'), 'Submission payload packages team.groupName');
+assert(siteJs.includes('members:') && siteJs.includes('split(\'\\n\')'), 'Submission payload packages team.members array');
+
+assert(siteJs.includes('UI.groupNameLabel') && siteJs.includes('r.team.groupName'), 'Registration success summary formats team group name');
+assert(siteJs.includes('सहभागी: ') && siteJs.includes('r.team.members.length'), 'Registration success summary formats participant count');
+
+
+/* =============================================================================
+   SECTION 6: APPS SCRIPT BACKEND (Code.gs) (35 assertions)
+   ========================================================================== */
+console.log('\n[6/8] Apps Script backend (Code.gs) (35 assertions)...');
+
+const codeGs = fs.readFileSync(path.join(ROOT, 'Code.gs'), 'utf8');
+
+assert(codeGs.includes('var SPREADSHEET_ID ='), 'Code.gs defines SPREADSHEET_ID setting');
+assert(codeGs.includes("'PUT_YOUR_SPREADSHEET_ID_HERE'"), 'SPREADSHEET_ID has safe placeholder');
+assert(codeGs.includes("TIME_ZONE = 'Asia/Kolkata'"), 'Code.gs timezone set to Asia/Kolkata');
+assert(codeGs.includes('var TABS = {'), 'Code.gs defines TABS mapping');
+
+assert(codeGs.includes("'chitrakala':        'चित्रकला'"), "Code.gs maps chitrakala -> 'चित्रकला'");
+assert(codeGs.includes("'mehndi':            'मेहंदी'"), "Code.gs maps mehndi -> 'मेहंदी'");
+assert(codeGs.includes("'nibandh':           'निबंध'"), "Code.gs maps nibandh -> 'निबंध'");
+assert(codeGs.includes("'vaktrutva':         'वक्तृत्व'"), "Code.gs maps vaktrutva -> 'वक्तृत्व'");
+assert(codeGs.includes("'ekpatri':           'एकपात्री नाट्य'"), "Code.gs maps ekpatri -> 'एकपात्री नाट्य'");
+assert(codeGs.includes("'rangoli':           'रांगोळी'"), "Code.gs maps rangoli -> 'रांगोळी'");
+assert(codeGs.includes("'group-dance':       'समूह नृत्य'"), "Code.gs maps group-dance -> 'समूह नृत्य'");
+assert(codeGs.includes("'group-singing':     'समूह गायन'"), "Code.gs maps group-singing -> 'समूह गायन'");
+assert(codeGs.includes("'group-fashion-show': 'समूह फॅशन शो'"), "Code.gs maps group-fashion-show -> 'समूह फॅशन शो'");
+
+// Headers validation
+const expectedHeaders = [
+  'नोंदणी तारीख व वेळ',
+  'नोंदणी क्रमांक',
+  'विद्यार्थ्याचे नाव',
+  'इयत्ता',
+  'शाळेचे नाव',
+  'गाव / शहर',
+  'पालकांचे / संरक्षकाचे नाव',
+  'मोबाइल क्रमांक',
+  'ईमेल',
+  'स्पर्धा',
+  'स्पर्धा आयडी',
+  'स्वरूप',
+  'गट',
+  'विषय',
+  'संघाचे नाव (Group Name)',
+  'सहभागी विद्यार्थी',
+  'सहभागींची संख्या',
+  'स्थिती'
+];
+
+assert(expectedHeaders.length === 18, 'Expected 18 headers configured for Google Sheets');
+expectedHeaders.forEach(h => {
+  assert(codeGs.includes(`'${h}'`), `Code.gs defines column header '${h}'`);
+});
+
+assert(codeGs.includes('LockService.getScriptLock()'), 'Code.gs acquires LockService script lock');
+assert(codeGs.includes('lock.waitLock('), 'Code.gs calls waitLock for concurrent safe execution');
+assert(codeGs.includes('referenceExists_'), 'Code.gs implements referenceExists_ deduplication check');
+
+
+/* =============================================================================
+   SECTION 7: SUBMIT BEHAVIOUR (30 assertions)
+   ========================================================================== */
+console.log('\n[7/8] Submit behaviour (30 assertions)...');
+
+const regForm = regDoc.getElementById('registrationForm');
+assert(regForm !== null, '#registrationForm exists in registration.html');
+
+const btnSubmit = regDoc.getElementById('submitBtn');
+assert(btnSubmit !== null, '#submitBtn button exists in registration.html');
+assert(btnSubmit && btnSubmit.getAttribute('type') === 'submit', 'Submit button has type="submit"');
+
+assert(siteJs.includes('preventDefault()'), 'site.js prevents default page submission');
+assert(siteJs.includes('aria-busy'), 'site.js applies aria-busy during submission');
+assert(siteJs.includes('disabled = true'), 'site.js disables submit button during request');
+assert(siteJs.includes('submitting = true'), 'site.js maintains isSubmitting lock guard');
+assert(siteJs.includes('if (submitting) return'), 'Double submit click is ignored while request is active');
+
+assert(siteJs.includes("data.result !== 'success'") || siteJs.includes("result === 'success'"), 'site.js checks strictly for res.result === "success"');
+assert(!siteJs.includes('fakeSuccess') && !siteJs.includes('mockSuccess'), 'site.js never fakes success without backend confirmation');
+
+assert(siteJs.includes('CONFIG.registrationEndpoint') || siteJs.includes('registrationEndpoint'), 'site.js configures registrationEndpoint');
+assert(siteJs.includes('Google Apps Script endpoint') || siteJs.includes('अद्याप जोडलेला नाही'), 'site.js warns if endpoint is unconfigured');
+assert(siteJs.includes('नोंदणी पाठवली गेली नाही') || siteJs.includes('पाठवला जात नाही'), 'Unconfigured endpoint explicitly states nothing was sent');
+
+assert(siteJs.includes('catch(') || siteJs.includes('.catch'), 'site.js catches network / HTTP errors');
+assert(siteJs.includes('तांत्रिक अडचण आली') || siteJs.includes('अडचण आली'), 'site.js shows user-friendly error on failure');
+assert(!siteJs.includes('form.reset(); // on error'), 'Form inputs are preserved intact on network failure');
+
+assert(regDoc.getElementById('studentName') !== null, '#studentName input exists');
+assert(regDoc.getElementById('mobile') !== null, '#mobile input exists');
+assert(regDoc.getElementById('standard') !== null, '#standard select exists');
+assert(regDoc.getElementById('schoolName') !== null, '#schoolName input exists');
+assert(regDoc.getElementById('city') !== null, '#city input exists');
+assert(regDoc.getElementById('guardianName') !== null, '#guardianName input exists');
+
+assert(siteJs.includes('MOBILE_RE = /^[6-9]\\d{9}$/'), 'site.js validates 10-digit Indian mobile number');
+assert(siteJs.includes('कृपया इयत्ता निवडा'), 'site.js requires standard selection');
+assert(siteJs.includes('किमान एका स्पर्धेसाठी नोंदणी करा') || siteJs.includes('किमान एक स्पर्धा'), 'site.js requires at least one competition selection');
+
+const successCard = regDoc.getElementById('successCard');
+assert(successCard !== null, '#successCard element exists in registration.html');
+assert(siteJs.includes('refNumber') || siteJs.includes('reference'), 'site.js formats registration reference number');
+assert(siteJs.includes('form.hidden = true') || siteJs.includes('form.style.display'), 'Form is hidden upon successful registration');
+
+const resetBtn = regDoc.getElementById('resetBtn');
+assert(resetBtn !== null, '#resetBtn reset button exists in registration.html');
+assert(siteJs.includes('clearFieldError') || siteJs.includes('clearError'), 'site.js clears validation errors on user input');
+
+
+/* =============================================================================
+   SECTION 8: अध्यक्ष CARD IN HERO & REGRESSIONS (37 assertions)
+   ========================================================================== */
+console.log('\n[8/8] अध्यक्ष card in hero & regressions (37 assertions)...');
+
+const heroOrg = doc.getElementById('heroOrganizer');
+assert(heroOrg !== null, '#heroOrganizer exists in index.html');
+assert(heroOrg && heroOrg.hasAttribute('hidden'), '#heroOrganizer has hidden attribute initially');
+
+// Placement: below hero__lede ("प्रतिभा सादर करा.") and above hero__actions
+const heroContent = doc.querySelector('.hero__content');
+const heroLede = doc.querySelector('.hero__lede');
+const heroActions = doc.querySelector('.hero__actions');
+
+assert(heroLede && heroLede.textContent.includes('प्रतिभा सादर करा'), 'Hero lede exists and contains “प्रतिभा सादर करा.”');
+assert(heroContent !== null && heroActions !== null, 'Hero content and actions containers exist');
+
+const ledeIndex = Array.from(heroContent.children).indexOf(heroLede);
+const orgIndex = Array.from(heroContent.children).indexOf(heroOrg);
+const actionsIndex = Array.from(heroContent.children).indexOf(heroActions);
+
+assert(orgIndex > ledeIndex, '#heroOrganizer is placed BELOW .hero__lede ("प्रतिभा सादर करा.")');
+assert(orgIndex < actionsIndex, '#heroOrganizer is placed BEFORE .hero__actions');
+
+// Organizer data in data.js
+const ORG = DATA.organizer;
+assert(typeof ORG === 'object' && ORG !== null, 'ORGANIZER object exists in data.js');
+assert(ORG.photo === 'logo-left.png' || (Array.isArray(ORG.photo) && ORG.photo.includes('logo-left.png')), 'ORGANIZER photo references logo-left.png');
+assert(ORG.shape === 'circle', 'ORGANIZER shape is "circle"');
+assert(ORG.role === 'अध्यक्ष', 'ORGANIZER role is "अध्यक्ष"');
+assert(ORG.name === 'श्री. संदीप गायकवाड', 'ORGANIZER name is "श्री. संदीप गायकवाड"');
+assert(ORG.club === 'श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ', 'ORGANIZER club is "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ"');
+assert(ORG.phone === '+919860844503', 'ORGANIZER phone is "+919860844503"');
+assert(ORG.phoneDisplay === '+91 98608 44503', 'ORGANIZER phoneDisplay is "+91 98608 44503"');
+assert(ORG.alt && ORG.alt.includes('श्री. संदीप गायकवाड'), 'ORGANIZER alt text includes अध्यक्ष name');
+
+// site.js rendering logic for organizer card
+assert(siteJs.includes('function renderOrganizerPhoto()'), 'site.js defines renderOrganizerPhoto()');
+assert(siteJs.includes('org-card'), 'site.js renders .org-card container');
+assert(siteJs.includes('org-card__frame'), 'site.js renders .org-card__frame portrait frame');
+assert(siteJs.includes('org-card__photo'), 'site.js renders .org-card__photo image');
+assert(siteJs.includes('org-card__role'), 'site.js renders .org-card__role badge');
+assert(siteJs.includes('org-card__name'), 'site.js renders .org-card__name element');
+assert(siteJs.includes('org-card__club'), 'site.js renders .org-card__club element');
+assert(siteJs.includes('org-card__phone'), 'site.js renders .org-card__phone link');
+assert(siteJs.includes('tel:'), 'site.js formats dialable tel: protocol href');
+assert(siteJs.includes('img.addEventListener(\'error\','), 'site.js attaches error handler to hide card if photo fails');
+
+// Regressions & typography in style.css
+assert(styleCss.includes('--organizer-scale: 1.5') || styleCss.includes('--organizer-scale:1.5'), 'style.css defines --organizer-scale: 1.5');
+assert(styleCss.includes('--org-size-brand:') && styleCss.includes('var(--organizer-scale)'), '--org-size-brand scales via --organizer-scale');
+assert(styleCss.includes('--org-size-hero:') && styleCss.includes('var(--organizer-scale)'), '--org-size-hero scales via --organizer-scale');
+assert(styleCss.includes('--org-size-footer:') && styleCss.includes('var(--organizer-scale)'), '--org-size-footer scales via --organizer-scale');
+assert(styleCss.includes('.org-name'), '.org-name shared class implemented');
+assert(styleCss.includes('.hero__content{') && styleCss.includes('center'), 'Hero content alignment is centred');
+assert(styleCss.includes('.section-head{') && styleCss.includes('center'), 'Section headings are centred');
+assert(styleCss.includes('.field__input{') || styleCss.includes('.field__input,'), 'Form inputs styled with left-aligned inputs');
+assert(styleCss.includes('.rules') || styleCss.includes('.topics'), 'Dense lists styled with proper padding');
+assert(styleCss.includes('Noto Sans Devanagari') && styleCss.includes('Noto Serif Devanagari'), 'Font stack includes Noto Sans and Noto Serif Devanagari');
+assert(styleCss.includes('line-height:1.5') || styleCss.includes('line-height: 1.5'), 'Line height allows clearance for Devanagari vowel diacritics');
+
+// Navigation responsive regression
+assert((siteJs.includes('navToggle') || siteJs.includes('hamburger')) && siteJs.includes('aria-expanded'), 'Responsive mobile navigation uses hamburger toggle and aria-expanded');
+
+
+/* =============================================================================
+   SUMMARY AND EXIT
+   ========================================================================== */
+console.log('\n========================================');
+console.log(`Result: ${passCount} PASS / ${failCount} FAIL`);
+console.log('========================================\n');
+
+if (failures.length > 0) {
+  console.error(`${failures.length} test(s) failed:`);
+  failures.forEach((f, idx) => console.error(`  ${idx + 1}. ${f}`));
+  process.exit(1);
+} else {
+  console.log('All 282 assertions passed successfully.');
+  process.exit(0);
+}

@@ -162,9 +162,9 @@ left-aligned for readability.
 
 ## 3b. अध्यक्षांचे छायाचित्र — `logo-left.png`
 
-The अध्यक्ष's portrait appears as a small circular medallion in the hero, **directly under
-the organiser name** (श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ आयोजित), with an “अध्यक्ष” badge
-and the club name beside it.
+The अध्यक्ष's portrait appears as a circular card in the hero, **below “प्रतिभा सादर करा.”**,
+with an “अध्यक्ष” badge, the अध्यक्ष's name (**श्री. संदीप गायकवाड**), the club name
+(**श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ**), and a dialable phone link (**+91 98608 44503** / `tel:+919860844503`).
 
 **Where the image goes:** the project root, next to `index.html`, named
 
@@ -184,8 +184,11 @@ background simply lets the cream frame show through, so no white box appears aro
   "photo": "logo-left.png",        // or a list: ["logo-left.png", "organizer.jpg"]
   "shape": "circle",               // "circle" = portrait crop · "square" = logo, uncropped
   "role": "अध्यक्ष",
-  "name": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ",
-  "alt": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ — अध्यक्ष"
+  "name": "श्री. संदीप गायकवाड",
+  "club": "श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ",
+  "phone": "+919860844503",
+  "phoneDisplay": "+91 98608 44503",
+  "alt": "श्री. संदीप गायकवाड — अध्यक्ष, श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ"
 }
 ```
 
@@ -206,6 +209,7 @@ used, which is handy while a new photograph is being prepared:
 * The `width`/`height` attributes come from the real image, so nothing jumps when it loads.
 * The portrait is 76 px (64 px on phones), the caption wraps, and the medallion shrinks
   with the hero, so it never pushes the festival title out of place.
+* The phone number is dialable via a semantic `<a href="tel:+919860844503">`.
 * To change the picture later, replace `logo-left.png` (or point `photo` at a new file
   name in `data.js`). Nothing else needs to be touched.
 
