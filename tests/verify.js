@@ -515,6 +515,13 @@ assert(siteJs.includes('org-card__phone'), 'site.js renders .org-card__phone lin
 assert(siteJs.includes('tel:'), 'site.js formats dialable tel: protocol href');
 assert(siteJs.includes('img.addEventListener(\'error\','), 'site.js attaches error handler to hide card if photo fails');
 
+// Configured deployment and locally scoped blue organiser palette.
+assert(siteJs.includes("registrationEndpoint: 'https://script.google.com/macros/s/AKfycbwGjbMftGjek68jzoWGDOc3D2qdtjyx9upNmz4ycqAOLV8JHIfQchdYo4FMb7hnqReH/exec'"), 'Registration uses the supplied Apps Script deployment');
+const orgStyles = styleCss.slice(styleCss.indexOf('.org-card{'), styleCss.indexOf('.hero__eyebrow{'));
+assert(orgStyles.includes('var(--org-blue-soft), var(--ivory)'), 'Organiser card blends soft blue with the existing warm ivory');
+assert(orgStyles.includes('color:var(--org-blue-deep)') && orgStyles.includes('var(--org-blue-line)'), 'Organiser text and borders use the blue palette');
+assert(styleCss.includes('--saffron:    #E8890C;') && styleCss.includes('--maroon:     #7A1F2B;'), 'Existing warm theme colours remain unchanged');
+
 // Regressions & typography in style.css
 assert(styleCss.includes('--organizer-scale: 1.5') || styleCss.includes('--organizer-scale:1.5'), 'style.css defines --organizer-scale: 1.5');
 assert(styleCss.includes('--org-size-brand:') && styleCss.includes('var(--organizer-scale)'), '--org-size-brand scales via --organizer-scale');

@@ -506,7 +506,7 @@ touch targets sized for phones, and a `<noscript>` notice on every page.
 ## Still to be configured by the organisers
 
 * `SPREADSHEET_ID` in `Code.gs` (placeholder: `PUT_YOUR_SPREADSHEET_ID_HERE`)
-* `CONFIG.registrationEndpoint` in `site.js` (empty → the form says nothing was sent)
+* `CONFIG.registrationEndpoint` in `site.js` is configured with the supplied Google Apps Script `/exec` deployment. Verify deployment access before accepting registrations.
 * more photographs as `14.` / `15.`
 * registration fees, prizes, contact numbers and any further rules — the site deliberately
   shows nothing for these until you supply it
