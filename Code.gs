@@ -1,7 +1,7 @@
 /* =============================================================================
    Code.gs — बालसंस्कार फेस्टिवल २०२६ — registration → Google Sheets
    -----------------------------------------------------------------------------
-   One spreadsheet, nine competition tabs. Every registration is written to the
+   One spreadsheet, ten competition tabs. Every registration is written to the
    tab of the competition it belongs to; a student who enters three competitions
    produces one row in each of the three matching tabs and nothing anywhere else.
 
@@ -11,7 +11,7 @@
    2. Extensions → Apps Script, paste this file, save.
    3. Set SPREADSHEET_ID below to the id from the spreadsheet URL
       (docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit).
-   4. Run  setupSheets()  once from the editor to create all nine tabs.
+   4. Run  setupSheets()  once from the editor to create all ten tabs.
    5. Deploy → New deployment → Web app
         Execute as: Me        Access: Anyone
       then paste the /exec URL into CONFIG.registrationEndpoint in site.js.
@@ -37,11 +37,18 @@ var TABS = {
   'rangoli':           'रांगोळी',
   'group-dance':       'समूह नृत्य',
   'group-singing':     'समूह गायन',
-  'group-fashion-show': 'समूह फॅशन शो'
+  'group-fashion-show': 'समूह फॅशन शो',
+  'reel-star':         'रील स्टार'
 };
 
 /* Competitions whose entries carry a group name and a participant list. */
 var TEAM_COMPETITIONS = ['group-dance', 'group-singing', 'group-fashion-show'];
+
+/* Competitions whose eligibility is age-based, not class-based.
+   रील स्टार: वय ५ ते १० वर्षे (इयत्ता ५ ते १० नाही). */
+var AGE_COMPETITIONS = {
+  'reel-star': { min: 5, max: 10, label: '५ ते १० वर्षे' }
+};
 
 var MIN_TEAM_MEMBERS = 5;
 
@@ -51,6 +58,7 @@ var HEADERS = [
   'नोंदणी क्रमांक',
   'विद्यार्थ्याचे नाव',
   'इयत्ता',
+  'वय (वर्षे)',
   'शाळेचे नाव',
   'गाव / शहर',
   'पालकांचे / संरक्षकाचे नाव',
@@ -107,6 +115,7 @@ function doPost(e) {
         reference,
         payload.studentName,
         payload.standard,
+        payload.age === '' || payload.age == null ? '' : payload.age,
         payload.schoolName,
         payload.city,
         payload.guardianName,
@@ -160,6 +169,7 @@ function parsePayload_(e) {
     requestId: text_(data.requestId, 60),
     studentName: text_(data.studentName),
     standard: text_(data.standard, 40),
+    age: (data.age === 0 || data.age) ? text_(data.age, 3) : '',
     schoolName: text_(data.schoolName),
     city: text_(data.city, 80),
     guardianName: text_(data.guardianName),
@@ -176,7 +186,8 @@ function parsePayload_(e) {
       mode: text_(r.mode, 20),
       group: text_(r.group, 120),
       topic: text_(r.topic, 200),
-      status: text_(r.status, 40)
+      status: text_(r.status, 40),
+      ageRange: text_(r.ageRange, 40)
     };
     if (r.team && typeof r.team === 'object') {
       entry.team = {
@@ -208,6 +219,14 @@ function validate_(p) {
     var tab = TABS[reg.competitionId] || tabFromName_(reg.competition);
     if (!tab) continue;
     known++;
+    var ageRule = AGE_COMPETITIONS[reg.competitionId];
+    if (ageRule) {
+      var ageValue = String(p.age || '').replace(/\D/g, '');
+      if (!ageValue) return 'कृपया रील स्टारसाठी विद्यार्थ्याचे वय (वर्षे) भरा.';
+      if (Number(ageValue) < ageRule.min || Number(ageValue) > ageRule.max) {
+        return 'रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ' + ageRule.label + ' असणे आवश्यक आहे.';
+      }
+    }
     if (TEAM_COMPETITIONS.indexOf(reg.competitionId) !== -1) {
       if (!reg.team || !reg.team.groupName || reg.team.groupName.length < 2) {
         return 'कृपया संघ स्पर्धांसाठी संघाचे नाव (Group Name) भरा.';
@@ -263,7 +282,7 @@ function referenceExists_(sheet, reference) {
   return false;
 }
 
-/* Run this once from the Apps Script editor to create all nine tabs. */
+/* Run this once from the Apps Script editor to create all ten tabs. */
 function setupSheets() {
   if (SPREADSHEET_ID === 'PUT_YOUR_SPREADSHEET_ID_HERE' || !SPREADSHEET_ID) {
     throw new Error('SPREADSHEET_ID is still a placeholder — paste your spreadsheet id first.');
@@ -299,6 +318,7 @@ function testValidation() {
     requestId: 'BSF26-test-1',
     studentName: 'रोहन अमोल शिंदे',
     standard: 'इयत्ता ६ वी',
+    age: '8',
     schoolName: 'शिरवळ विद्यालय',
     city: 'शिरवळ',
     guardianName: 'अमोल शिंदे',
@@ -307,6 +327,8 @@ function testValidation() {
     registrations: [
       { competitionId: 'chitrakala', competition: 'चित्रकला स्पर्धा', mode: 'offline',
         group: 'गट ३ — इयत्ता ५ वी ते ७ वी', topic: 'कृष्ण', status: 'registered' },
+      { competitionId: 'reel-star', competition: 'रील स्टार', mode: 'online',
+        group: '', topic: '', status: 'registered', ageRange: '५ ते १० वर्षे' },
       { competitionId: 'group-dance', competition: 'समूह नृत्य', mode: 'online',
         group: 'गट ३ — इयत्ता ५ वी ते ७ वी', topic: '', status: 'registered',
         team: { groupName: 'कलावंत मंडळ',

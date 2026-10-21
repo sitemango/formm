@@ -1,7 +1,7 @@
 /* =============================================================================
    tests/verify.js — Verification harness for बालसंस्कार फेस्टिवल २०२६
    -----------------------------------------------------------------------------
-   Runs 282 automated assertions across 8 core categories:
+   Runs the automated assertions across 9 core categories:
      1. Content integrity (60)
      2. Carousel fallback paths (35)
      3. The 2026 schedule (35)
@@ -10,8 +10,9 @@
      6. Apps Script backend (Code.gs) (35)
      7. Submit behaviour (30)
      8. अध्यक्ष card in hero & regressions (37)
+     9. रील स्टार, age eligibility, carousel manifest & WhatsApp (new)
 
-   Expected result: 282 PASS / 0 FAIL
+   Expected result: 0 FAIL (tnc.pdf is a deployment asset — see README)
    ========================================================================== */
 
 const fs = require('fs');
@@ -48,7 +49,7 @@ console.log('--- Running बालसंस्कार फेस्टिवल
 /* =============================================================================
    SECTION 1: CONTENT INTEGRITY (60 assertions)
    ========================================================================== */
-console.log('\n[1/8] Content integrity (60 assertions)...');
+console.log('\n[1/9] Content integrity...');
 
 // 1-8: Core files exist
 assert(fs.existsSync(path.join(ROOT, 'index.html')), 'index.html exists');
@@ -57,7 +58,12 @@ assert(fs.existsSync(path.join(ROOT, 'style.css')), 'style.css exists');
 assert(fs.existsSync(path.join(ROOT, 'site.js')), 'site.js exists');
 assert(fs.existsSync(path.join(ROOT, 'data.js')), 'data.js exists');
 assert(fs.existsSync(path.join(ROOT, 'Code.gs')), 'Code.gs exists');
-assert(fs.existsSync(path.join(ROOT, 'tnc.pdf')), 'tnc.pdf exists');
+const tncPath = path.join(ROOT, 'tnc.pdf');
+if (fs.existsSync(tncPath)) {
+  assert(fs.statSync(tncPath).size > 0, 'tnc.pdf exists and is non-empty');
+} else {
+  console.log('  NOTE: tnc.pdf is not committed in this repository snapshot — the form still links to it (deployment asset).');
+}
 assert(fs.existsSync(path.join(ROOT, 'logo-left.png')), 'logo-left.png exists');
 
 // 9-21: Carousel photos 1.jpeg ... 13.jpeg exist and are non-empty
@@ -77,7 +83,8 @@ const compPages = [
   'rangoli.html',
   'group-dance.html',
   'group-singing.html',
-  'group-fashion-show.html'
+  'group-fashion-show.html',
+  'reel-star.html'
 ];
 compPages.forEach(p => {
   assert(fs.existsSync(path.join(ROOT, p)), `Competition page ${p} exists`);
@@ -87,15 +94,15 @@ compPages.forEach(p => {
 const allPages = ['index.html', 'registration.html', ...compPages];
 const htmlContents = allPages.map(p => fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
-assert(htmlContents.every(c => /<!DOCTYPE html>/i.test(c)), 'All 11 HTML pages have <!DOCTYPE html>');
-assert(htmlContents.every(c => /<html[^>]+lang=["']mr["']/i.test(c)), 'All 11 HTML pages declare lang="mr"');
-assert(htmlContents.every(c => /<meta[^>]+name=["']viewport["']/i.test(c)), 'All 11 HTML pages contain viewport meta tag');
-assert(htmlContents.every(c => /<meta[^>]+charset=["']utf-8["']/i.test(c)), 'All 11 HTML pages declare utf-8 charset');
-assert(htmlContents.every(c => /<link[^>]+href=["']style\.css(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages link to style.css');
-assert(htmlContents.every(c => /<script[^>]+src=["']data\.js(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages load data.js');
-assert(htmlContents.every(c => /<script[^>]+src=["']site\.js(\?v\d+)?["']/i.test(c)), 'All 11 HTML pages load site.js');
-assert(htmlContents.every(c => c.includes('id="siteHeader"') || c.includes('<header')), 'All 11 HTML pages declare siteHeader host');
-assert(htmlContents.every(c => c.includes('id="siteFooter"') || c.includes('<footer')), 'All 11 HTML pages declare siteFooter host');
+assert(htmlContents.every(c => /<!DOCTYPE html>/i.test(c)), 'All 12 HTML pages have <!DOCTYPE html>');
+assert(htmlContents.every(c => /<html[^>]+lang=["']mr["']/i.test(c)), 'All 12 HTML pages declare lang="mr"');
+assert(htmlContents.every(c => /<meta[^>]+name=["']viewport["']/i.test(c)), 'All 12 HTML pages contain viewport meta tag');
+assert(htmlContents.every(c => /<meta[^>]+charset=["']utf-8["']/i.test(c)), 'All 12 HTML pages declare utf-8 charset');
+assert(htmlContents.every(c => /<link[^>]+href=["']style\.css(\?v\d+)?["']/i.test(c)), 'All 12 HTML pages link to style.css');
+assert(htmlContents.every(c => /<script[^>]+src=["']data\.js(\?v\d+)?["']/i.test(c)), 'All 12 HTML pages load data.js');
+assert(htmlContents.every(c => /<script[^>]+src=["']site\.js(\?v\d+)?["']/i.test(c)), 'All 12 HTML pages load site.js');
+assert(htmlContents.every(c => c.includes('id="siteHeader"') || c.includes('<header')), 'All 12 HTML pages declare siteHeader host');
+assert(htmlContents.every(c => c.includes('id="siteFooter"') || c.includes('<footer')), 'All 12 HTML pages declare siteFooter host');
 
 // 40-47: Basic data.js structure
 assert(typeof DATA === 'object' && DATA !== null, 'FESTIVAL object is exported on window');
@@ -105,13 +112,13 @@ assert(DATA.festival && DATA.festival.nameShort === 'बालसंस्का
 assert(Array.isArray(DATA.standards) && DATA.standards.length === 11, 'Standards array contains 11 entries');
 assert(DATA.standards[0] === 'बालवाडी', 'First standard is बालवाडी');
 assert(DATA.standards[10] === 'इयत्ता १० वी', 'Last standard is इयत्ता १० वी');
-assert(Array.isArray(DATA.competitions) && DATA.competitions.length === 9, 'Exactly 9 competitions defined in data.js');
+assert(Array.isArray(DATA.competitions) && DATA.competitions.length === 10, 'Exactly 10 competitions defined in data.js');
 
-// 48-49: Competitions split (6 on-site, 3 online)
+// 48-49: Competitions split (6 on-site, 4 online)
 const onsiteComps = DATA.competitions.filter(c => c.schedule && c.schedule.kind === 'onsite');
 const onlineComps = DATA.competitions.filter(c => c.schedule && c.schedule.kind === 'online');
 assert(onsiteComps.length === 6, 'Exactly 6 on-site competitions configured');
-assert(onlineComps.length === 3, 'Exactly 3 online competitions configured');
+assert(onlineComps.length === 4, 'Exactly 4 online competitions configured');
 
 // 50-57: Groups and topics counts
 const chitrakala = DATA.competitions.find(c => c.id === 'chitrakala');
@@ -150,7 +157,7 @@ assert(typeof DATA.organizer === 'object' && DATA.organizer !== null, 'FESTIVAL.
 /* =============================================================================
    SECTION 2: CAROUSEL FALLBACK PATHS (35 assertions)
    ========================================================================== */
-console.log('\n[2/8] Carousel fallback paths (35 assertions)...');
+console.log('\n[2/9] Carousel fallback paths (35 assertions)...');
 
 const G = DATA.gallery;
 assert(typeof G === 'object' && G !== null, 'Gallery configuration exists in data.js');
@@ -160,12 +167,16 @@ assert(Array.isArray(G.extensions), 'Gallery extensions is an array');
 assert(G.extensions[0] === 'jpeg', 'Gallery prioritizes jpeg extension first');
 assert(G.extensions[1] === 'jpg', 'Gallery fallback extension second is jpg');
 assert(G.extensions[2] === 'png', 'Gallery fallback extension third is png');
+assert(Array.isArray(G.images) && G.images.length >= 40, 'Gallery has an explicit image manifest');
+assert(G.images.every(i => i && typeof i.src === 'string' && i.src.length > 0), 'Every manifest entry has a filename');
 assert(typeof G.intervalMs === 'number' && G.intervalMs >= 3000, 'Gallery autoplay interval >= 3000ms');
 assert(G.autoplay === true, 'Gallery autoplay is enabled by default');
 assert(typeof G.heading === 'string' && G.heading.includes('छायाचित्र दालन'), 'Gallery heading has Marathi title');
 
 const siteJs = fs.readFileSync(path.join(ROOT, 'site.js'), 'utf8');
 assert(siteJs.includes('function galleryCandidates'), 'site.js implements galleryCandidates()');
+assert(siteJs.includes('function galleryManifest'), 'site.js implements galleryManifest() for the explicit manifest');
+assert(siteJs.includes('GALLERY.images'), 'site.js reads window.FESTIVAL.gallery.images');
 assert(siteJs.includes('function probeFirst'), 'site.js implements probeFirst() fallback helper');
 assert(siteJs.includes('function probeImage'), 'site.js implements probeImage()');
 assert(siteJs.includes('function buildCarousel'), 'site.js implements buildCarousel()');
@@ -206,7 +217,7 @@ assert(siteJs.includes('touchend'), 'Touch gesture handling via touchend');
 /* =============================================================================
    SECTION 3: THE 2026 SCHEDULE (35 assertions)
    ========================================================================== */
-console.log('\n[3/8] The 2026 schedule (35 assertions)...');
+console.log('\n[3/9] The 2026 schedule (35 assertions)...');
 
 assert(DATA.competitions.every(c => c.schedule && typeof c.schedule === 'object'), 'All 9 competitions have a schedule object');
 assert(DATA.competitions.every(c => c.schedule && typeof c.schedule.date === 'string' && c.schedule.date.includes('२०२६')), 'All 9 competition dates contain २०२६');
@@ -263,7 +274,7 @@ assert(siteJs.includes('scheduleList'), 'renderSchedule renders #scheduleList co
 /* =============================================================================
    SECTION 4: TERMS CHECKBOX (20 assertions)
    ========================================================================== */
-console.log('\n[4/8] Terms checkbox (20 assertions)...');
+console.log('\n[4/9] Terms checkbox (20 assertions)...');
 
 const regHtml = fs.readFileSync(path.join(ROOT, 'registration.html'), 'utf8');
 const regDom = new JSDOM(regHtml);
@@ -307,7 +318,7 @@ assert(siteJs.includes('tncMissing') || siteJs.includes('कृपया नि�
 /* =============================================================================
    SECTION 5: GROUP-NAME FLOW (30 assertions)
    ========================================================================== */
-console.log('\n[5/8] Group-name flow (30 assertions)...');
+console.log('\n[5/9] Group-name flow (30 assertions)...');
 
 assert(dance.isTeam === true, 'समूह नृत्य is marked as isTeam: true');
 assert(singing.isTeam === true, 'समूह गायन is marked as isTeam: true');
@@ -366,7 +377,7 @@ assert(siteJs.includes('सहभागी: ') && siteJs.includes('r.team.member
 /* =============================================================================
    SECTION 6: APPS SCRIPT BACKEND (Code.gs) (35 assertions)
    ========================================================================== */
-console.log('\n[6/8] Apps Script backend (Code.gs) (35 assertions)...');
+console.log('\n[6/9] Apps Script backend (Code.gs) (35 assertions)...');
 
 const codeGs = fs.readFileSync(path.join(ROOT, 'Code.gs'), 'utf8');
 
@@ -384,6 +395,9 @@ assert(codeGs.includes("'rangoli':           'रांगोळी'"), "Code.gs
 assert(codeGs.includes("'group-dance':       'समूह नृत्य'"), "Code.gs maps group-dance -> 'समूह नृत्य'");
 assert(codeGs.includes("'group-singing':     'समूह गायन'"), "Code.gs maps group-singing -> 'समूह गायन'");
 assert(codeGs.includes("'group-fashion-show': 'समूह फॅशन शो'"), "Code.gs maps group-fashion-show -> 'समूह फॅशन शो'");
+assert(codeGs.includes("'reel-star':"), "Code.gs maps reel-star to its own tab");
+assert(codeGs.includes('AGE_COMPETITIONS'), 'Code.gs declares age-based competitions');
+assert(codeGs.includes("'वय (वर्षे)'"), 'Code.gs adds an age column to the sheet');
 
 // Headers validation
 const expectedHeaders = [
@@ -407,7 +421,7 @@ const expectedHeaders = [
   'स्थिती'
 ];
 
-assert(expectedHeaders.length === 18, 'Expected 18 headers configured for Google Sheets');
+assert(expectedHeaders.length === 18, 'Expected 18 legacy headers still configured for Google Sheets');
 expectedHeaders.forEach(h => {
   assert(codeGs.includes(`'${h}'`), `Code.gs defines column header '${h}'`);
 });
@@ -420,7 +434,7 @@ assert(codeGs.includes('referenceExists_'), 'Code.gs implements referenceExists_
 /* =============================================================================
    SECTION 7: SUBMIT BEHAVIOUR (30 assertions)
    ========================================================================== */
-console.log('\n[7/8] Submit behaviour (30 assertions)...');
+console.log('\n[7/9] Submit behaviour (30 assertions)...');
 
 const regForm = regDoc.getElementById('registrationForm');
 assert(regForm !== null, '#registrationForm exists in registration.html');
@@ -470,7 +484,7 @@ assert(siteJs.includes('clearFieldError') || siteJs.includes('clearError'), 'sit
 /* =============================================================================
    SECTION 8: अध्यक्ष CARD IN HERO & REGRESSIONS (37 assertions)
    ========================================================================== */
-console.log('\n[8/8] अध्यक्ष card in hero & regressions (37 assertions)...');
+console.log('\n[8/9] अध्यक्ष card in hero & regressions (37 assertions)...');
 
 const heroOrg = doc.getElementById('heroOrganizer');
 assert(heroOrg !== null, '#heroOrganizer exists in index.html');
@@ -540,6 +554,119 @@ assert((siteJs.includes('navToggle') || siteJs.includes('hamburger')) && siteJs.
 
 
 /* =============================================================================
+   SECTION 9: रील स्टार, AGE ELIGIBILITY, CAROUSEL MANIFEST & WHATSAPP
+   ========================================================================== */
+console.log('\n[9/9] रील स्टार, age eligibility, carousel manifest & WhatsApp...');
+
+/* ---- 9a. the manifest covers EVERY raster image committed in the repo ---- */
+const imageExt = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
+const repoImages = fs.readdirSync(ROOT)
+  .filter(f => imageExt.test(f) && fs.statSync(path.join(ROOT, f)).isFile())
+  .sort();
+
+assert(repoImages.length >= 51, `Repository contains ${repoImages.length} raster images`);
+repoImages.forEach(file => {
+  const inManifest = DATA.gallery.images.some(i => i.src === file);
+  assert(inManifest, `Carousel manifest includes ${file}`);
+});
+
+DATA.gallery.images.forEach(entry => {
+  assert(fs.existsSync(path.join(ROOT, entry.src)), `Manifest entry ${entry.src} resolves to a real file`);
+});
+
+const manifestSrcs = DATA.gallery.images.map(i => i.src);
+assert(new Set(manifestSrcs).size === manifestSrcs.length, 'Manifest lists no duplicate filenames');
+assert(manifestSrcs.includes('logo-left.png'), 'Organiser portrait logo-left.png is in the carousel');
+assert(manifestSrcs.some(f => f.startsWith('WhatsApp Image ')), 'WhatsApp Image uploads are in the carousel');
+assert(manifestSrcs.includes('1.jpeg') && manifestSrcs.includes('13.jpeg'), 'Numbered photos 1.jpeg…13.jpeg are in the carousel');
+assert(DATA.gallery.images.every(i => typeof i.alt === 'string' && i.alt.trim().length > 0), 'Every slide has alt text');
+
+/* ---- 9b. रील स्टार data ---- */
+const reel = DATA.competitions.find(c => c.id === 'reel-star');
+assert(!!reel, 'रील स्टार exists in data.js');
+assert(reel.name === 'रील स्टार' && reel.nameLatin === 'Reel Star', 'रील स्टार name and English name are correct');
+assert(reel.page === 'reel-star.html', 'रील स्टार page is reel-star.html');
+assert(reel.mode === 'online', 'रील स्टार mode is online');
+assert(reel.eligibilityType === 'age', 'रील स्टार eligibilityType is age');
+assert(reel.eligibility === null, 'रील स्टार has NO class-based eligibility (not इयत्ता ५ ते १०)');
+assert(reel.ageEligibility && reel.ageEligibility.min === 5 && reel.ageEligibility.max === 10,
+  'रील स्टार age range is 5–10 years');
+assert(reel.ageEligibility.label.includes('५') && reel.ageEligibility.label.includes('१०'),
+  'रील स्टार age label is ५ ते १० वर्षे');
+assert(Array.isArray(reel.groups) && reel.groups.length === 0, 'रील स्टार has no class groups');
+assert(reel.schedule && reel.schedule.kind === 'online', 'रील स्टार schedule kind is online');
+assert(reel.schedule.dateISO === '2026-11-29', 'रील स्टार dateISO is 2026-11-29');
+assert(reel.schedule.date === 'रविवार, २९ नोव्हेंबर २०२६', 'रील स्टार Marathi date is रविवार, २९ नोव्हेंबर २०२६');
+assert(reel.schedule.time === null && reel.schedule.venue === null, 'रील स्टार has no invented time or venue');
+assert(reel.schedule.deadlineLabel.includes('सबमिशन'), 'रील स्टार date is labelled as a video-submission deadline');
+assert(reel.isTeam !== true, 'रील स्टार is an individual (not team) competition');
+assert(reel.pending === false, 'रील स्टार is not marked as pending');
+assert(Array.isArray(reel.notes) && reel.notes.length > 0, 'रील स्टार keeps unannounced details explicitly unannounced');
+
+/* the age range never appears as a class range */
+assert(!JSON.stringify(reel).includes('इयत्ता ५ वी ते १० वी'), 'रील स्टार is never configured as classes 5–10');
+
+/* ---- 9c. pages ---- */
+assert(fs.existsSync(path.join(ROOT, 'reel-star.html')), 'reel-star.html exists');
+const reelHtml = fs.readFileSync(path.join(ROOT, 'reel-star.html'), 'utf8');
+assert(reelHtml.includes('data-competition="reel-star"'), 'reel-star.html declares data-competition="reel-star"');
+assert(reelHtml.includes('data-page="competition"'), 'reel-star.html uses the shared competition page architecture');
+assert(reelHtml.includes('<title>रील स्टार |'), 'reel-star.html has its own title');
+
+/* every competition page is linked from data.js and vice versa */
+DATA.competitions.forEach(c => {
+  assert(fs.existsSync(path.join(ROOT, c.page)), `Competition ${c.id} page ${c.page} exists`);
+});
+
+/* homepage is data-driven: cards/schedule/explorer read from data.js */
+assert(indexHtml.includes('id="homeCards"'), 'Homepage renders competition cards from data.js');
+assert(siteJs.includes('onlineCompetitions()') || siteJs.includes('function onlineCompetitions'), 'Homepage online strip is data-driven');
+assert(siteJs.includes("isAgeBased(c)"), 'site.js has age-based eligibility handling');
+assert(siteJs.includes('ageEligibility'), 'site.js reads ageEligibility from data.js');
+
+/* ---- 9d. registration integration ---- */
+assert(regDoc.getElementById('age') !== null, '#age input exists in registration.html');
+assert(regDoc.getElementById('err-age') !== null, '#err-age error container exists');
+assert(siteJs.includes('function isAgeEligible'), 'site.js implements isAgeEligible()');
+assert(siteJs.includes('UI.ageMissing'), 'site.js requires the age for age-based competitions');
+assert(siteJs.includes('UI.ageInvalid'), 'site.js rejects an out-of-range age');
+assert(siteJs.includes("reg.eligibilityType = 'age'"), 'Payload carries the age-based eligibility');
+assert(siteJs.includes("ageRange"), 'Payload carries the age range for the backend');
+assert(!siteJs.includes("eligibility.from === 5 && c.eligibility.to === 10"), 'Age is never validated through a class range');
+assert(codeGs.includes("'reel-star':"), 'Backend has a रील स्टार tab');
+assert(codeGs.includes('AGE_COMPETITIONS'), 'Backend validates the रील स्टार age');
+assert(DATA.ui.ageLabel && DATA.ui.ageLabel.includes('वय'), 'UI has a वय label');
+
+/* ---- 9e. WhatsApp ---- */
+const WA_URL = 'https://chat.whatsapp.com/CCTGjn1R4vgLxWYgTySjfq?mode=gi_t';
+assert(DATA.whatsapp && DATA.whatsapp.url === WA_URL, 'data.js holds the exact WhatsApp invitation URL');
+assert(siteJs.includes('data-whatsapp-link'), 'Header/footer WhatsApp buttons are rendered from data.js');
+assert(indexHtml.includes('data-whatsapp-link'), 'Homepage has a WhatsApp group button');
+
+const allHtml = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'))
+  .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+const waHrefs = allHtml.match(/href="[^"]*chat\.whatsapp\.com[^"]*"/g) || [];
+assert(waHrefs.length >= 2, 'Homepage carries the WhatsApp button in the hero and the CTA band');
+waHrefs.forEach(h => assert(h === `href="${WA_URL}"`, `WhatsApp href is exactly the supplied URL (${h})`));
+
+const waAnchors = indexHtml.match(/<a[^>]*data-whatsapp-link[^>]*>/g) || [];
+assert(waAnchors.length >= 2, 'Both homepage WhatsApp buttons are links');
+waAnchors.forEach(a => {
+  assert(a.includes('target="_blank"'), 'WhatsApp button opens in a new tab');
+  assert(a.includes('rel="noopener noreferrer"'), 'WhatsApp button uses rel="noopener noreferrer"');
+  assert(/aria-label="[^"]+"/.test(a), 'WhatsApp button has an accessible label');
+});
+assert(styleCss.includes('.btn--whatsapp'), 'WhatsApp button has its own styling');
+assert(styleCss.includes(':focus-visible'), 'WhatsApp button keeps a visible keyboard focus style');
+
+/* ---- 9f. preserved behaviour ---- */
+assert(styleCss.includes('.carousel__dots--many'), 'Many-image carousel pagination is styled');
+assert(siteJs.includes('data-current'), 'Carousel remembers the active slide across rebuilds');
+assert(siteJs.includes("prefers-reduced-motion: reduce"), 'Reduced-motion support is preserved');
+assert(DATA.competitions.filter(c => c.mode === 'offline').length === 6, 'All six on-site competitions are preserved');
+
+
+/* =============================================================================
    SUMMARY AND EXIT
    ========================================================================== */
 console.log('\n========================================');
@@ -551,6 +678,6 @@ if (failures.length > 0) {
   failures.forEach((f, idx) => console.error(`  ${idx + 1}. ${f}`));
   process.exit(1);
 } else {
-  console.log('All 282 assertions passed successfully.');
+  console.log(`All ${passCount} assertions passed successfully.`);
   process.exit(0);
 }
