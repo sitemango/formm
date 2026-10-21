@@ -247,6 +247,9 @@ assert(ekpatri.schedule.date === 'शनिवार, २८ नोव्हे�
 assert(ekpatri.schedule.dateISO === '2026-11-28', 'एकपात्री नाट्य dateISO is 2026-11-28');
 assert(ekpatri.schedule.time === 'दुपारी ३ वाजता', 'एकपात्री नाट्य time is दुपारी ३ वाजता');
 assert(ekpatri.schedule.venue.includes('शिरवळ'), 'एकपात्री नाट्य venue is in Shirwal');
+assert(ekpatri.schedule.venue === 'जिल्हा परिषद प्राथमिक शाळा, मुली, शिरवळ',
+  'एकपात्री नाट्य venue spells the village मुली');
+assert(!ekpatri.schedule.venue.includes('मुळी'), 'एकपात्री नाट्य venue no longer says मुळी');
 
 assert(rangoli.schedule.date === 'रविवार, २९ नोव्हेंबर २०२६', 'रांगोळी date is रविवार, २९ नोव्हेंबर २०२६');
 assert(rangoli.schedule.dateISO === '2026-11-29', 'रांगोळी dateISO is 2026-11-29');
@@ -602,7 +605,10 @@ assert(Array.isArray(reel.groups) && reel.groups.length === 0, 'रील स्
 assert(reel.schedule && reel.schedule.kind === 'online', 'रील स्टार schedule kind is online');
 assert(reel.schedule.dateISO === '2026-11-29', 'रील स्टार dateISO is 2026-11-29');
 assert(reel.schedule.date === 'रविवार, २९ नोव्हेंबर २०२६', 'रील स्टार Marathi date is रविवार, २९ नोव्हेंबर २०२६');
-assert(reel.schedule.time === null && reel.schedule.venue === null, 'रील स्टार has no invented time or venue');
+assert(reel.schedule.time === null && reel.schedule.venue === null,
+  'रील स्टार has no live-event time or physical venue');
+assert(reel.schedule.deadlineTime === 'संध्याकाळी ५ वाजता', 'रील स्टार submission deadline is ५:०० pm');
+assert(siteJs.includes('function deadlineDate'), 'site.js renders the deadline time via deadlineDate()');
 assert(reel.schedule.deadlineLabel.includes('सबमिशन'), 'रील स्टार date is labelled as a video-submission deadline');
 assert(reel.isTeam !== true, 'रील स्टार is an individual (not team) competition');
 assert(reel.pending === false, 'रील स्टार is not marked as pending');

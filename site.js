@@ -112,6 +112,14 @@
     return (c && c.schedule && c.schedule.deadlineLabel) || UI.deadlineLabel;
   }
 
+  /* The submission deadline including its cut-off time when one is confirmed:
+     "रविवार, २९ नोव्हेंबर २०२६, संध्याकाळी ५ वाजता". Team events have no time. */
+  function deadlineDate(c) {
+    var sch = c && c.schedule;
+    if (!sch) return '';
+    return sch.deadlineTime ? sch.date + ', ' + sch.deadlineTime : sch.date;
+  }
+
   function eligibleFor(standardIndex) {
     return C.filter(function (c) {
       if (!c.eligibility) return true;
@@ -548,7 +556,7 @@
         '</span>' +
         (c.schedule ? '<span class="ccard__date">' + icon('#i-cal') +
           (c.schedule.kind === 'online'
-            ? escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(shortDate(c.schedule.date))
+            ? escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(shortDate(deadlineDate(c)))
             : escapeHtml(c.schedule.date) + ' · ' + escapeHtml(c.schedule.time)) +
         '</span>' : '') +
         '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
@@ -574,7 +582,7 @@
         : '<li class="chip chip--soft">' + icon('#i-info') + ' स्वतंत्र गट नाहीत</li>' +
           (c.schedule && c.mode === 'online'
             ? '<li class="chip chip--soft">' + icon('#i-online') + ' ' +
-              escapeHtml(onlineDeadlineLabel(c)) + ' — ' + escapeHtml(shortDate(c.schedule.date)) + '</li>'
+              escapeHtml(onlineDeadlineLabel(c)) + ' — ' + escapeHtml(shortDate(deadlineDate(c))) + '</li>'
             : '');
       return '' +
         '<article class="erow reveal" data-accent="' + c.accent + '">' +
@@ -679,7 +687,7 @@
           '<span class="online-card__note">' + note + '</span>' +
           (c.schedule
             ? '<span class="online-card__date">' + icon('#i-cal') +
-              escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(c.schedule.date) + '</span>'
+              escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(deadlineDate(c)) + '</span>'
             : '') +
         '</span>' +
         '<span class="online-card__go">' + icon('#i-arrow') + '</span>' +
@@ -708,7 +716,7 @@
       var sch = c.schedule;
       var when = sch.kind === 'online'
         ? '<span class="sched__k">' + escapeHtml(onlineDeadlineLabel(c)) + '</span>' +
-          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>'
+          '<span class="sched__v">' + escapeHtml(deadlineDate(c)) + '</span>'
         : '<span class="sched__k">' + escapeHtml(UI.dateLabel) + '</span>' +
           '<span class="sched__v">' + escapeHtml(sch.date) + '</span>';
       return '' +
@@ -1163,7 +1171,7 @@
     if (c.schedule) {
       facts.push(fact(c.schedule.kind === 'online'
         ? (c.schedule.deadlineLabel || UI.deadlineLabel || 'अंतिम तारीख')
-        : 'दिनांक', shortDate(c.schedule.date)));
+        : 'दिनांक', shortDate(deadlineDate(c))));
     }
 
     /* --- date, time and venue --------------------------------------------- */
@@ -1171,10 +1179,11 @@
     if (c.schedule) {
       var sch = c.schedule;
       var rows = sch.kind === 'online'
-        ? [[onlineDeadlineLabel(c), sch.date],
+        ? [[onlineDeadlineLabel(c), deadlineDate(c)],
            ['स्वरूप', 'ऑनलाइन स्पर्धा'],
            ['प्रत्यक्ष ठिकाण', 'नाही — ही ऑनलाइन स्पर्धा आहे'],
-           ['प्रत्यक्ष वेळ', 'नाही — फक्त व्हिडिओ सबमिशनची अंतिम तारीख']]
+           ['प्रत्यक्ष वेळ', 'नाही — फक्त व्हिडिओ सबमिशनची अंतिम तारीख' +
+             (sch.deadlineTime ? ' (' + sch.deadlineTime + ')' : '')]]
         : [['दिनांक', sch.date], ['वेळ', sch.time], ['ठिकाण', sch.venue]];
       schedHtml =
         '<section class="cp-block" id="schedule">' +
@@ -1648,7 +1657,7 @@
         (c.schedule
           ? '<span class="comp-pick__group">' + icon('#i-online') +
               'ऑनलाइन स्पर्धा · ' + escapeHtml(onlineDeadlineLabel(c)) + ': ' +
-              escapeHtml(c.schedule.date) +
+              escapeHtml(deadlineDate(c)) +
             '</span>'
           : '') +
         (c.notes && c.notes.length

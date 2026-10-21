@@ -191,6 +191,7 @@ function stubFetch(win, response) {
     const reelCard = cards.find(c => /reel-star\.html$/.test(c.getAttribute('href')));
     check(!!reelCard, 'Homepage has a Reel Star card linking to reel-star.html');
     check(/इयत्ता ५ वी ते १० वी/.test(text(reelCard)), 'Reel Star card shows इयत्ता ५ वी ते १० वी');
+    check(/संध्याकाळी ५ वाजता/.test(text(reelCard)), 'Reel Star card shows the 5 pm deadline');
     check(!/वय/.test(text(reelCard)), 'Reel Star card carries no age wording');
     const chips = [...document.querySelectorAll('.hero__chips .chip')].map(c => text(c)).join(' | ');
     check(!/वय|वयोगट/.test(chips), 'Hero chips no longer show a Reel Star age rule: ' + chips);
@@ -202,6 +203,7 @@ function stubFetch(win, response) {
     const reelRow = scheduleRows.find(r => /रील स्टार/.test(text(r)));
     check(!!reelRow, 'Schedule includes Reel Star');
     check(/व्हिडिओ सबमिशनची अंतिम तारीख/.test(text(reelRow)), 'Schedule marks Reel Star as a video-submission deadline');
+    check(/संध्याकाळी ५ वाजता/.test(text(reelRow)), 'Schedule shows the 5 pm Reel Star deadline');
     check(/२९ नोव्हेंबर २०२६/.test(text(reelRow)), 'Schedule shows २९ नोव्हेंबर २०२६ for Reel Star');
     check(/प्रत्यक्ष स्थळ किंवा वेळ लागू नाही/.test(text(reelRow)), 'Schedule never implies an in-person Reel Star event');
 
@@ -288,6 +290,9 @@ function stubFetch(win, response) {
     check(/ऑनलाइन स्पर्धा/.test(text(main)), 'Page is labelled as an online competition');
     check(/२९ नोव्हेंबर २०२६/.test(text(main)), 'Page shows रविवार, २९ नोव्हेंबर २०२६');
     check(/व्हिडिओ सबमिशनची अंतिम तारीख/.test(text(main)), 'Page labels the date as a submission deadline');
+    check(/२९ नोव्हेंबर २०२६, संध्याकाळी ५ वाजता/.test(text(main)), 'Page shows the 5:00 pm deadline');
+    check(/प्रत्यक्ष वेळ/.test(text(main)) && /संध्याकाळी ५ वाजता/.test(text(main)),
+      'The 5 pm cut-off is shown as the submission deadline, not as a live event time');
     check(/नाही — ही ऑनलाइन स्पर्धा आहे/.test(text(main)), 'Page states that there is no physical venue');
     check(/अद्याप जाहीर होणे बाकी/.test(text(main)), 'Unannounced Reel Star details stay explicitly unannounced');
     const cta = document.querySelector('.cp-head__actions a.btn--primary');
@@ -331,6 +336,8 @@ function stubFetch(win, response) {
     check(!!reelBox && reelBox.checked, 'Reel Star is preselected once an eligible इयत्ता is chosen');
     check(/इयत्ता ५ वी ते १० वी/.test(text(document.getElementById('onlineList'))),
       'Reel Star pick card shows the grade eligibility');
+    check(/संध्याकाळी ५ वाजता/.test(text(document.getElementById('onlineList'))),
+      'Reel Star pick card shows the 5 pm deadline');
     check(!reelBox.closest('.comp-pick').querySelector('[data-topic-select]'),
       'Reel Star asks for no topic');
     check(!reelBox.closest('.comp-pick').querySelector('[data-team-groupname]'),

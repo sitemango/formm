@@ -46,10 +46,10 @@ can be opened directly by URL and the whole thing publishes to GitHub Pages as-i
 ## 1. Photo carousel — explicit image manifest
 
 The gallery sits on the homepage, between the hero and the competition directory. It shows
-**every photograph committed in the repository** — 50 files at the time of writing:
+**every photograph committed in the repository** — 58 files at the time of writing:
 
 * `1.jpeg` … `13.jpeg` — the numbered photographs
-* 37 more uploads whose original names are kept, e.g.
+* 45 more uploads whose original names are kept, e.g.
   `WhatsApp Image 2026-10-21 at 21.32.40.jpeg` and `WhatsApp Image 2026-10-21 at 21.38.49 (1).jpeg`
 
 `logo-left.png` is deliberately **not** a slide: it is the अध्यक्ष portrait that belongs to
@@ -101,7 +101,7 @@ then confirms every file in the background:
 
 **Behaviour (unchanged)**
 
-* one main image at a time, arrows + pagination dots + a “१ / ५०” counter
+* one main image at a time, arrows + pagination dots + a “१ / ५८” counter
 * swipe on touch devices, `←` / `→` on the keyboard, dots are real buttons with labels
 * `width`/`height` come from the real image size and `object-fit: contain` is used, so the
   aspect ratio is preserved and nothing is stretched
@@ -241,9 +241,11 @@ online strip all read from it, so they can never disagree.
 }
 ```
 
-For the four online competitions `kind` is `"online"` and there is no `time` or `venue` —
-the date is labelled as a **video deadline**, never as a live-event time. Each competition
-brings its own wording through `deadlineLabel`:
+For the four online competitions `kind` is `"online"` and there is no live `time` or
+`venue` — the date is labelled as a **video deadline**, never as a live-event time. An online
+competition may add `deadlineTime` when the organisers confirm a cut-off hour; it is printed
+right after the date everywhere (`deadlineDate()`), while the “प्रत्यक्ष वेळ” row still says
+there is no live event. Each competition brings its own wording through `deadlineLabel`:
 
 ```js
 "schedule": {
@@ -253,10 +255,11 @@ brings its own wording through `deadlineLabel`:
   "deadlineLabel": "व्हिडिओ पाठविण्याची अंतिम तारीख"        // the three team events
 }
 
-// रील स्टार (29 November)
+// रील स्टार (29 November, 5 pm submission cut-off)
 "schedule": {
   "kind": "online", "dateISO": "2026-11-29",
   "date": "रविवार, २९ नोव्हेंबर २०२६",
+  "deadlineTime": "संध्याकाळी ५ वाजता",
   "time": null, "venue": null,
   "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
 }
@@ -273,9 +276,9 @@ The २०२६ schedule:
 | समूह नृत्य | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
 | समूह गायन | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
 | समूह फॅशन शो | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
-| एकपात्री नाट्य अभिनय | शनिवार, २८ नोव्हेंबर २०२६ | दुपारी ३ | जिल्हा परिषद प्राथमिक शाळा, मुळी, शिरवळ |
+| एकपात्री नाट्य अभिनय | शनिवार, २८ नोव्हेंबर २०२६ | दुपारी ३ | जिल्हा परिषद प्राथमिक शाळा, मुली, शिरवळ |
 | रांगोळी | रविवार, २९ नोव्हेंबर २०२६ | सकाळी ९ | एम. ई. एस. इंग्लिश मिडियम स्कूल, शिरवळ |
-| रील स्टार | रविवार, २९ नोव्हेंबर २०२६ | *व्हिडिओ सबमिशनची अंतिम तारीख* | ऑनलाइन — प्रत्यक्ष स्थळ नाही |
+| रील स्टार | रविवार, २९ नोव्हेंबर २०२६ | *व्हिडिओ सबमिशनची अंतिम तारीख — संध्याकाळी ५ वाजता* | ऑनलाइन — प्रत्यक्ष स्थळ नाही |
 
 Editing a date: change `date` (and `dateISO` so the homepage list stays in order) in
 `data.js` — the competition page, the homepage schedule and the card update together.
@@ -353,7 +356,7 @@ details only:
 | Competition | रील स्टार (Reel Star) |
 | Eligibility | **इयत्ता ५ वी ते १० वी** — a **grade (class)** rule, exactly like the other competitions; there is no age rule anywhere |
 | Format | **Online** — no physical venue, no live-event time |
-| Deadline | **रविवार, २९ नोव्हेंबर २०२६** / Sunday, 29 November 2026 (`dateISO: "2026-11-29"`) |
+| Deadline | **रविवार, २९ नोव्हेंबर २०२६, संध्याकाळी ५ वाजता** / Sunday, 29 November 2026, 5:00 pm (`dateISO: "2026-11-29"`, `deadlineTime`) |
 
 ```js
 {
@@ -364,6 +367,7 @@ details only:
   "schedule": {
     "kind": "online", "dateISO": "2026-11-29", "order": "10",
     "date": "रविवार, २९ नोव्हेंबर २०२६",
+    "deadlineTime": "संध्याकाळी ५ वाजता",
     "time": null, "venue": null,
     "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
   },
@@ -387,7 +391,7 @@ backend** — the earlier “age 5–10” rule was removed on request.
 **Where it appears — all from that one object**
 
 * homepage **card** (`#homeCards`) with the online badge, “पात्रता: इयत्ता ५ वी ते १० वी ·
-  ऑनलाइन स्पर्धा” and the २९ नोव्हेंबर २०२६ deadline
+  ऑनलाइन स्पर्धा” and the २९ नोव्हेंबर २०२६, संध्याकाळी ५ वाजता deadline
 * homepage **schedule** — its own row, marked *व्हिडिओ सबमिशनची अंतिम तारीख* and
   “प्रत्यक्ष स्थळ किंवा वेळ लागू नाही”
 * homepage **online strip**, **eligibility overview** (an “स्वतंत्र गट नाहीत” chip) and the
@@ -632,9 +636,9 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 472 + 98 assertions
-npm run test:verify    # source-level suite    → 472 assertions
-npm run test:runtime   # jsdom runtime suite    → 98 assertions
+npm test               # both suites           → 492 + 103 assertions
+npm run test:verify    # source-level suite    → 492 assertions
+npm run test:runtime   # jsdom runtime suite    → 103 assertions
 ```
 
 `tests/verify.js` inspects the source and the data: every HTML page, the competition data,
@@ -678,12 +682,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v5`, `data.js?v5` and `site.js?v5`. Browsers
+Every page loads its assets as `style.css?v6`, `data.js?v6` and `site.js?v6`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v5/?v6/g' *.html
+sed -i 's/?v6/?v7/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.
