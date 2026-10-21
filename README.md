@@ -128,7 +128,12 @@ The registration form links to **`tnc.pdf`**, which must stay in the project roo
 * The link sits **outside** the checkbox `<label>`, so clicking it can never tick the box.
 
 The checkbox itself is a real, visible `<input type="checkbox">` (26 × 26 px, styled with
-`appearance: none`, a CSS-drawn tick, a saffron focus ring and a maroon checked state).
+`appearance: none`). When ticked it shows a **black tick on a white tile** with the accent
+border — drawn as an inline-SVG `background-image`, *not* an `::after` pseudo-element, because
+browsers do not render pseudo-elements on `<input>` elements (that is why the old white tick
+was invisible). Black-on-white is ~19:1; the old white tick on the dark maroon gradient was
+unreadable even where it did render. `@media (forced-colors: active)` hands the checkbox back
+to the system so High Contrast users get the native tick.
 It is required: submitting without it shows
 “कृपया नियम व अटी वाचून सहमती द्या.” and the form is not sent.
 
@@ -441,6 +446,7 @@ Where it appears:
 | **Homepage CTA band** | static HTML | below the registration button, with a one-line note |
 | **Header navigation** | `renderHeader()` | every page; full label on wide screens, icon + `aria-label` between 900–1180 px, full-width button inside the mobile menu |
 | **Footer** (उपयुक्त दुवे column) | `renderFooter()` | every page, with the note text |
+| **Registration success card** | `initRegistration()` → `#successWhatsapp` | after a confirmed registration, so the participant can join the group for next steps; the note comes from `ui.successWhatsappNote` |
 
 Styling and behaviour:
 
@@ -459,8 +465,10 @@ Styling and behaviour:
 
 ## 6. Connecting the form to Google Sheets
 
-Until an endpoint is configured the form validates normally but never pretends the data was
-sent — it shows an explicit Marathi notice and posts nothing.
+The endpoint is configured in `site.js` (`CONFIG.registrationEndpoint`), so the form posts
+straight to the Apps Script web app. There is **no “endpoint not configured” banner** on the
+page any more; if the endpoint is ever emptied, the form still validates normally and — on
+submit — plainly states that nothing was sent instead of faking a success.
 
 ### 6.1 Create the spreadsheet and find its id
 
@@ -655,9 +663,9 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 509 + 103 assertions
-npm run test:verify    # source-level suite    → 509 assertions
-npm run test:runtime   # jsdom runtime suite    → 103 assertions
+npm test               # both suites           → 525 + 114 assertions
+npm run test:verify    # source-level suite    → 525 assertions
+npm run test:runtime   # jsdom runtime suite    → 114 assertions
 ```
 
 `tests/verify.js` inspects the source and the data: every HTML page, the competition data,
@@ -701,12 +709,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v7`, `data.js?v7` and `site.js?v7`. Browsers
+Every page loads its assets as `style.css?v8`, `data.js?v8` and `site.js?v8`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v7/?v8/g' *.html
+sed -i 's/?v8/?v9/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

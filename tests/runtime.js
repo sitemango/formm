@@ -316,6 +316,11 @@ function stubFetch(win, response) {
   {
     const { dom, window, document, errors } = await boot('registration.html', '?competition=reel-star');
     check(document.getElementById('age') === null, 'No age field is rendered (grade-based rule)');
+    check(document.getElementById('configNote') === null, 'No “endpoint not configured” notice is rendered');
+    check(!/endpoint अद्याप जोडलेला नाही/.test(text(document.body)),
+      'The Apps Script endpoint notice is gone from the page');
+    check(document.getElementById('successCard').hidden === true,
+      'The success card (with its WhatsApp button) stays hidden until a registration succeeds');
     check(document.getElementById('onlineGroup').hidden === false,
       'Online section (with its explanation) is visible before a class is chosen');
     check(document.querySelector('[data-comp-checkbox="reel-star"]') === null,
@@ -361,6 +366,27 @@ function stubFetch(win, response) {
     check(reg && reg.group === '', 'No invented group is attached to a group-less competition');
     check(document.getElementById('successCard').hidden === false, 'Success card appears only after a valid backend response');
     check(!/वय/.test(text(document.getElementById('successSummary'))), 'Success summary shows no age');
+
+    /* the success card keeps the WhatsApp group invitation */
+    const waHost = document.getElementById('successWhatsapp');
+    check(waHost.hidden === false, 'Success card shows the WhatsApp group block');
+    const waLink = waHost.querySelector('a[data-whatsapp-link]');
+    check(!!waLink, 'Success card keeps the Join WhatsApp Group button');
+    check(waLink && waLink.getAttribute('href') === 'https://chat.whatsapp.com/CCTGjn1R4vgLxWYgTySjfq?mode=gi_t',
+      'Success WhatsApp button uses the exact invitation URL');
+    check(waLink && waLink.getAttribute('target') === '_blank' &&
+      waLink.getAttribute('rel') === 'noopener noreferrer',
+      'Success WhatsApp button opens in a new tab with rel="noopener noreferrer"');
+    check(waLink && waLink.getAttribute('aria-label'), 'Success WhatsApp button has an accessible label');
+    check(/WhatsApp ग्रुपमध्ये/.test(text(waHost)), 'Success card explains why to join the group');
+
+    /* the declaration tick: a real background-image, not an <input>::after */
+    const declaration = document.getElementById('declaration');
+    declaration.checked = true;
+    const tick = window.getComputedStyle(declaration).backgroundImage || '';
+    check(/svg/.test(tick), 'A tick is drawn on the checkbox with a background-image');
+    check(/%23000000|%23000\b|#000/i.test(tick), 'The tick is black');
+
     check(errors.length === 0, 'No JavaScript errors in the registration flow' + (errors.length ? ': ' + errors.join(' | ') : ''));
     dom.window.close();
   }

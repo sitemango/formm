@@ -1439,9 +1439,6 @@
     var standardSelect = qs('#standard');
     if (!form || !standardSelect) return;
 
-    var configNote = qs('#configNote');
-    if (configNote && !CONFIG.registrationEndpoint) configNote.hidden = false;
-
     S.forEach(function (label, index) {
       var option = document.createElement('option');
       option.value = String(index);
@@ -1522,6 +1519,20 @@
         renderPreselectHint();
       }, 0);
     });
+
+    /* After a successful registration the participant is invited into the
+       WhatsApp group — same invitation URL as the header, footer and hero,
+       still configured only in data.js. */
+    var waHost = qs('#successWhatsapp');
+    if (waHost) {
+      var waButton = whatsappButton({ size: 'lg', cls: 'success__wa-btn' });
+      waHost.hidden = !waButton;
+      waHost.innerHTML = waButton
+        ? '<p class="success__wa-note">' +
+            escapeHtml(UI.successWhatsappNote || 'पुढील सूचनांसाठी WhatsApp ग्रुपमध्ये सहभागी व्हा.') +
+          '</p>' + waButton
+        : '';
+    }
 
     var newBtn = qs('#newRegistrationBtn');
     if (newBtn) {
