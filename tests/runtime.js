@@ -30,7 +30,7 @@ function check(condition, message) {
 
 function text(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
 
-async function boot(file, search) {
+async function boot(file, search, beforeParse) {
   const errors = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => {
@@ -47,7 +47,8 @@ async function boot(file, search) {
     runScripts: 'dangerously',
     resources: 'usable',
     pretendToBeVisual: true,
-    virtualConsole
+    virtualConsole,
+    beforeParse: beforeParse || function () {}
   });
 
   await new Promise((resolve) => {
@@ -213,7 +214,54 @@ function stubFetch(win, response) {
     check(/वय ५ ते १० वर्षे/.test(text(document.getElementById('explorerResults'))),
       'Explorer shows the age eligibility for Reel Star');
 
+    /* swipe */
+    const stage = document.getElementById('carouselStage');
+    const beforeSwipe = activeIndex();
+    const touchStart = new window.Event('touchstart', { bubbles: true });
+    const touchEnd = new window.Event('touchend', { bubbles: true });
+    Object.defineProperty(touchStart, 'touches', { value: [{ clientX: 200 }] });
+    Object.defineProperty(touchEnd, 'changedTouches', { value: [{ clientX: 120 }] });
+    stage.dispatchEvent(touchStart);
+    stage.dispatchEvent(touchEnd);
+    check(activeIndex() === (beforeSwipe + 1) % document.querySelectorAll('.carousel__slide').length,
+      'Swiping left moves to the next slide');
+
     check(errors.length === 0, 'No JavaScript errors on the homepage' + (errors.length ? ': ' + errors.join(' | ') : ''));
+    dom.window.close();
+  }
+
+  /* autoplay runs when motion is allowed … */
+  {
+    let autoplayTick = null;
+    const { dom, window, document } = await boot('index.html', '', (win) => {
+      win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+      const realSetInterval = win.setInterval;
+      win.setInterval = function (fn, ms) {
+        if (ms === 6000) { autoplayTick = fn; return 1; }
+        return realSetInterval(fn, ms);
+      };
+    });
+    await new Promise(r => setTimeout(r, 150));
+    check(typeof autoplayTick === 'function', 'Autoplay timer is scheduled when motion is allowed');
+    if (autoplayTick) {
+      const idx = [...document.querySelectorAll('.carousel__slide')].findIndex(s => s.classList.contains('is-active'));
+      autoplayTick();
+      const after = [...document.querySelectorAll('.carousel__slide')].findIndex(s => s.classList.contains('is-active'));
+      check(after === idx + 1, 'Autoplay advances to the next slide');
+    }
+    dom.window.close();
+  }
+
+  /* … and is switched off entirely under prefers-reduced-motion: reduce */
+  {
+    let intervalMs = [];
+    const { dom, window } = await boot('index.html', '', (win) => {
+      win.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} });
+      const realSetInterval = win.setInterval;
+      win.setInterval = function (fn, ms) { intervalMs.push(ms); return realSetInterval(fn, ms); };
+    });
+    await new Promise(r => setTimeout(r, 150));
+    check(intervalMs.indexOf(6000) === -1, 'Autoplay is disabled under prefers-reduced-motion');
     dom.window.close();
   }
 

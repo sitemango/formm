@@ -622,8 +622,9 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # source-level suite  → 467 assertions
-npm run test:runtime   # jsdom runtime suite → 76 assertions
+npm test               # both suites           → 467 + 85 assertions
+npm run test:verify    # source-level suite    → 467 assertions
+npm run test:runtime   # jsdom runtime suite    → 85 assertions
 ```
 
 `tests/verify.js` inspects the source and the data: every HTML page, the competition data,
@@ -636,8 +637,9 @@ no class range, no venue), the age validation and the exact WhatsApp URL in ever
 `data.js` + `site.js` actually running, then drives them:
 
 * carousel — every manifest image becomes a slide, dot and counter entry; next/previous at
-  both ends, wrap-around, dots, keyboard, and a forced `<img error>` that must remove exactly
-  one slide while keeping the dots and the counter correct
+  both ends, wrap-around, dots, keyboard, swipe, autoplay (and its absence under
+  `prefers-reduced-motion`), and a forced `<img error>` that must remove exactly one slide
+  while keeping the dots and the counter correct
 * रील स्टार — page heading/facts/deadline, CTA, homepage card, schedule row, online strip,
   explorer entry, preselection and age validation (missing age, age 12, age 8)
 * registration — payload contents (`age`, `eligibilityType`, `ageRange`, `status`), the
