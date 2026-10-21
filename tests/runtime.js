@@ -110,11 +110,14 @@ function stubFetch(win, response) {
     check(dots.length === manifest.length, `Pagination has one dot per image (${dots.length})`);
     check(slides.every(s => s.querySelector('.carousel__img').getAttribute('alt')), 'Every slide has alt text');
 
-    /* every committed repository image is present, in manifest order */
+    /* every committed gallery photograph is present, in manifest order; the
+       अध्यक्ष portrait (logo-left.png) belongs to the hero, never to the gallery */
     const srcs = slides.map(s => s.querySelector('.carousel__img').getAttribute('src'));
     const repoImages = fs.readdirSync(ROOT)
-      .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile());
-    check(repoImages.every(f => srcs.includes(f)), 'No repository image is missing from the carousel');
+      .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile()
+        && f !== 'logo-left.png');
+    check(repoImages.every(f => srcs.includes(f)), 'No repository photograph is missing from the carousel');
+    check(!srcs.includes('logo-left.png'), 'The अध्यक्ष portrait is not a carousel slide');
     check(srcs[0] === manifest[0].src && srcs[srcs.length - 1] === manifest[manifest.length - 1].src,
       'First and last manifest images are the first and last slides');
 

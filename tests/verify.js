@@ -238,8 +238,8 @@ assert(nibandh.schedule.dateISO === '2026-11-27', 'निबंध dateISO is 20
 assert(nibandh.schedule.time === 'दुपारी २ वाजता', 'निबंध time is दुपारी २ वाजता');
 assert(nibandh.schedule.venue.includes('शिरवळ'), 'निबंध venue is in Shirwal');
 
-assert(vaktrutva.schedule.date === 'शुक्रवार, २७ नोव्हेंबर २०२६', 'वक्तृत्व date is शुक्रवार, २७ नोव्हेंबर २०२६');
-assert(vaktrutva.schedule.dateISO === '2026-11-27', 'वक्तृत्व dateISO is 2026-11-27');
+assert(vaktrutva.schedule.date === 'शनिवार, २८ नोव्हेंबर २०२६', 'वक्तृत्व date is शनिवार, २८ नोव्हेंबर २०२६');
+assert(vaktrutva.schedule.dateISO === '2026-11-28', 'वक्तृत्व dateISO is 2026-11-28');
 assert(vaktrutva.schedule.time === 'सकाळी ११ वाजता', 'वक्तृत्व time is सकाळी ११ वाजता');
 assert(vaktrutva.schedule.venue.includes('शिरवळ'), 'वक्तृत्व venue is in Shirwal');
 
@@ -558,14 +558,17 @@ assert((siteJs.includes('navToggle') || siteJs.includes('hamburger')) && siteJs.
    ========================================================================== */
 console.log('\n[9/9] रील स्टार, grade eligibility, carousel manifest & WhatsApp...');
 
-/* ---- 9a. the manifest covers EVERY raster image committed in the repo ---- */
+/* ---- 9a. the manifest covers every gallery photograph in the repo ---- */
 const imageExt = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
 const repoImages = fs.readdirSync(ROOT)
   .filter(f => imageExt.test(f) && fs.statSync(path.join(ROOT, f)).isFile())
   .sort();
 
-assert(repoImages.length >= 51, `Repository contains ${repoImages.length} raster images`);
-repoImages.forEach(file => {
+/* logo-left.png is the अध्यक्ष portrait: it belongs to the hero, not the gallery */
+assert(repoImages.includes('logo-left.png'), 'Repository still contains logo-left.png');
+const galleryImages = repoImages.filter(f => f !== 'logo-left.png');
+assert(galleryImages.length >= 50, `Repository contains ${galleryImages.length} gallery photographs`);
+galleryImages.forEach(file => {
   const inManifest = DATA.gallery.images.some(i => i.src === file);
   assert(inManifest, `Carousel manifest includes ${file}`);
 });
@@ -576,7 +579,8 @@ DATA.gallery.images.forEach(entry => {
 
 const manifestSrcs = DATA.gallery.images.map(i => i.src);
 assert(new Set(manifestSrcs).size === manifestSrcs.length, 'Manifest lists no duplicate filenames');
-assert(manifestSrcs.includes('logo-left.png'), 'Organiser portrait logo-left.png is in the carousel');
+assert(!manifestSrcs.includes('logo-left.png'), 'Organiser portrait logo-left.png is NOT a carousel slide');
+assert(DATA.gallery.images.length === galleryImages.length, 'Manifest length equals the gallery photographs in the repo');
 assert(manifestSrcs.some(f => f.startsWith('WhatsApp Image ')), 'WhatsApp Image uploads are in the carousel');
 assert(manifestSrcs.includes('1.jpeg') && manifestSrcs.includes('13.jpeg'), 'Numbered photos 1.jpeg…13.jpeg are in the carousel');
 assert(DATA.gallery.images.every(i => typeof i.alt === 'string' && i.alt.trim().length > 0), 'Every slide has alt text');
@@ -633,6 +637,8 @@ assert(siteJs.includes('function hasGroups'), 'site.js distinguishes competition
 assert(!indexHtml.includes('वय ५ ते १०'), 'Hero/homepage never mentions an age range');
 assert(!indexHtml.includes('रील स्टार: वय'), 'Hero chips no longer show a रील स्टार age chip');
 assert(indexHtml.includes('५ वी ते १० वी'), 'Homepage states the इयत्ता ५ वी ते १० वी range');
+assert(indexHtml.includes('३० गटांत स्पर्धा'), 'Hero chip states ३० गटांत स्पर्धा');
+assert(!indexHtml.includes('ऑनलाइन नोंदणी उपलब्ध'), 'The old ऑनलाइन नोंदणी उपलब्ध hero chip is gone');
 
 /* ---- 9d. registration integration ---- */
 assert(regDoc.getElementById('age') === null, 'registration.html has no age field (grade-based rule)');

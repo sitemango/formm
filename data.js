@@ -34,6 +34,9 @@
 
    src is the real filename (relative to gallery.folder). Add a line for every
    new photograph — no code change is needed, the renderer reads this list.
+   Exceptional root image: logo-left.png is the अध्यक्ष portrait used by the
+   hero medallion (data.js → organizer), so it is deliberately NOT listed here
+   and never appears as a slide.
    gallery.start / count / extensions are only a legacy fallback for projects
    that have no manifest.
    ========================================================================== */
@@ -291,9 +294,9 @@ window.FESTIVAL = {
       "mode": "offline",
       "schedule": {
         "kind": "onsite",
-        "dateISO": "2026-11-27",
+        "dateISO": "2026-11-28",
         "order": "3",
-        "date": "शुक्रवार, २७ नोव्हेंबर २०२६",
+        "date": "शनिवार, २८ नोव्हेंबर २०२६",
         "time": "सकाळी ११ वाजता",
         "venue": "आदर्श विद्यालय, शिरवळ"
       },
@@ -1137,11 +1140,6 @@ window.FESTIVAL = {
         "src": "WhatsApp Image 2026-10-21 at 21.42.51.jpeg",
         "alt": "बालसंस्कार फेस्टिवल २०२६ — छायाचित्र ५०",
         "caption": ""
-      },
-      {
-        "src": "logo-left.png",
-        "alt": "श्री. संदीप गायकवाड — अध्यक्ष, श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ",
-        "caption": "श्री. संदीप गायकवाड — अध्यक्ष, श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ"
       }
     ],
     "heading": "बालसंस्कार फेस्टिवल — छायाचित्र दालन",

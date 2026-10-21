@@ -29,7 +29,7 @@ Code.gs                    Google Apps Script backend → Google Sheets
 tnc.pdf                    the terms and conditions the form links to
 1.jpeg … 13.jpeg           numbered carousel photographs
 WhatsApp Image … .jpeg     37 further carousel photographs (original names kept)
-logo-left.png              अध्यक्षांचे छायाचित्र — hero portrait **and** a carousel slide
+logo-left.png              अध्यक्षांचे छायाचित्र — hero portrait only (not in the carousel)
 tests/verify.js            source-level test suite      (npm test)
 tests/runtime.js           jsdom runtime test suite    (npm run test:runtime)
 ```
@@ -46,13 +46,16 @@ can be opened directly by URL and the whole thing publishes to GitHub Pages as-i
 ## 1. Photo carousel — explicit image manifest
 
 The gallery sits on the homepage, between the hero and the competition directory. It shows
-**every raster image committed in the repository** — 51 files at the time of writing:
+**every photograph committed in the repository** — 50 files at the time of writing:
 
 * `1.jpeg` … `13.jpeg` — the numbered photographs
 * 37 more uploads whose original names are kept, e.g.
   `WhatsApp Image 2026-10-21 at 21.32.40.jpeg` and `WhatsApp Image 2026-10-21 at 21.38.49 (1).jpeg`
-* `logo-left.png` — the अध्यक्ष portrait. It keeps its own role in the hero section **and**
-  is also a slide, because the gallery must contain every image in the repository.
+
+`logo-left.png` is deliberately **not** a slide: it is the अध्यक्ष portrait that belongs to
+the hero medallion only (see **3b**), so it is the one image in the root that the gallery
+skips. The tests enforce exactly that — every other photograph must be in the manifest, and
+`logo-left.png` must not be.
 
 **How the list is maintained.** `data.js` holds an explicit manifest — one entry per file,
 filename and all. There is no numbering convention any more, so a file whose name does not
@@ -65,10 +68,7 @@ look like `7.jpeg` is never silently dropped:
     { "src": "1.jpeg",  "alt": "बालसंस्कार फेस्टिवल २०२६ — छायाचित्र १", "caption": "" },
     { "src": "2.jpeg",  "alt": "…", "caption": "" },
     …
-    { "src": "WhatsApp Image 2026-10-21 at 21.32.40.jpeg", "alt": "…", "caption": "" },
-    …
-    { "src": "logo-left.png", "alt": "श्री. संदीप गायकवाड — अध्यक्ष …",
-      "caption": "श्री. संदीप गायकवाड — अध्यक्ष, श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ" }
+    { "src": "WhatsApp Image 2026-10-21 at 21.32.40.jpeg", "alt": "…", "caption": "" }
   ],
   "heading": "बालसंस्कार फेस्टिवल — छायाचित्र दालन",
   "lede": "…",
@@ -101,7 +101,7 @@ then confirms every file in the background:
 
 **Behaviour (unchanged)**
 
-* one main image at a time, arrows + pagination dots + a “१ / ५१” counter
+* one main image at a time, arrows + pagination dots + a “१ / ५०” counter
 * swipe on touch devices, `←` / `→` on the keyboard, dots are real buttons with labels
 * `width`/`height` come from the real image size and `object-fit: contain` is used, so the
   aspect ratio is preserved and nothing is stretched
@@ -217,6 +217,8 @@ used, which is handy while a new photograph is being prepared:
 * The portrait is 76 px (64 px on phones), the caption wraps, and the medallion shrinks
   with the hero, so it never pushes the festival title out of place.
 * The phone number is dialable via a semantic `<a href="tel:+919860844503">`.
+* The portrait is **not** part of the homepage carousel — it is only the hero medallion,
+  so it never appears twice on the page.
 * To change the picture later, replace `logo-left.png` (or point `photo` at a new file
   name in `data.js`). Nothing else needs to be touched.
 
@@ -266,7 +268,7 @@ The २०२६ schedule:
 | --- | --- | --- | --- |
 | चित्रकला | रविवार, २२ नोव्हेंबर २०२६ | सकाळी ८:३० | जिल्हा परिषद प्राथमिक शाळा, मुख्य पटांगण, शिरवळ |
 | मेहंदी | सोमवार, २३ नोव्हेंबर २०२६ | दुपारी ४ | अंगणवाडी क्रमांक ६, शिरवळ |
-| वक्तृत्व | शुक्रवार, २७ नोव्हेंबर २०२६ | सकाळी ११ | आदर्श विद्यालय, शिरवळ |
+| वक्तृत्व | शनिवार, २८ नोव्हेंबर २०२६ | सकाळी ११ | आदर्श विद्यालय, शिरवळ |
 | निबंध | शुक्रवार, २७ नोव्हेंबर २०२६ | दुपारी २ | ज्ञानवर्धिनी प्रशाला, शिरवळ |
 | समूह नृत्य | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
 | समूह गायन | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
@@ -630,22 +632,23 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 470 + 97 assertions
-npm run test:verify    # source-level suite    → 470 assertions
-npm run test:runtime   # jsdom runtime suite    → 97 assertions
+npm test               # both suites           → 472 + 98 assertions
+npm run test:verify    # source-level suite    → 472 assertions
+npm run test:runtime   # jsdom runtime suite    → 98 assertions
 ```
 
 `tests/verify.js` inspects the source and the data: every HTML page, the competition data,
 the schedule, the terms checkbox, the group-name flow, the Apps Script contract, the submit
 behaviour, the अध्यक्ष card, and — for this release — **every raster image in the repository
-being present in `gallery.images`**, the रील स्टार data (इयत्ता ५ वी ते १० वी,
+being present in `gallery.images` (and `logo-left.png` being absent from it)**, the रील स्टार data (इयत्ता ५ वी ते १० वी,
 `dateISO` `2026-11-29`, no groups, no venue, no age wording), the absence of any age field /
 age column, and the exact WhatsApp URL in every button.
 
 `tests/runtime.js` boots `index.html`, `reel-star.html` and `registration.html` in jsdom with
 `data.js` + `site.js` actually running, then drives them:
 
-* carousel — every manifest image becomes a slide, dot and counter entry; next/previous at
+* carousel — every manifest image becomes a slide, dot and counter entry (`logo-left.png`
+  is asserted **not** to be one), next/previous at
   both ends, wrap-around, dots, keyboard, swipe, autoplay (and its absence under
   `prefers-reduced-motion`), and a forced `<img error>` that must remove exactly one slide
   while keeping the dots and the counter correct
@@ -675,12 +678,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v4`, `data.js?v4` and `site.js?v4`. Browsers
+Every page loads its assets as `style.css?v5`, `data.js?v5` and `site.js?v5`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v4/?v5/g' *.html
+sed -i 's/?v5/?v6/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

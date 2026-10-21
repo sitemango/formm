@@ -807,10 +807,11 @@
   }
 
   /* =============================================================== GALLERY */
-  /* gallery.images in data.js is the explicit manifest: EVERY photograph in the
-     repository, referenced by its real filename (numbered JPEGs, PNGs and the
-     "WhatsApp Image …" uploads alike). Nothing is derived from a number range,
-     so a file whose name does not follow 1.jpeg…15.jpeg is still a slide. */
+  /* gallery.images in data.js is the explicit manifest: every gallery photograph,
+     referenced by its real filename (numbered JPEGs and the "WhatsApp Image …"
+     uploads alike). Nothing is derived from a number range, so a file whose name
+     does not follow 1.jpeg…15.jpeg is still a slide; logo-left.png (the अध्यक्ष
+     portrait) is the one root image that is deliberately not listed. */
   function galleryFolder() {
     var folder = (GALLERY && GALLERY.folder) || '';
     if (folder && folder.charAt(folder.length - 1) !== '/') folder += '/';
