@@ -484,7 +484,44 @@ p{ margin:0 0 1em; }
   padding:.45em 1.1em; max-width:100%;
 }
 .hero__eyebrow::before{ content:""; width:24px; height:2px; border-radius:2px; background:var(--grad-warm); }
-.hero__title{ margin:0 0 .3em; }
+.hero__title{
+  margin:0 0 .3em;
+  /* Homepage festival name. Flat maroon is the baseline: it is what browsers
+     without gradient text (and Windows High Contrast) actually paint, and it
+     keeps the title readable if the gradient below is unsupported. */
+  color:var(--maroon);
+}
+
+/* pink → blue → purple → orange → red → maroon, left to right across the words.
+   Nothing is loaded and no extra markup is needed: the text itself is clipped to
+   the gradient. Every stop — and the blends between them — clears 4.5:1 against
+   the cream hero (#EFE1CC), so the heading stays WCAG AA at every size it uses:
+   #C2185B 4.6:1 · #1E4E9A 6.3:1 · #6A1B9A 7.3:1 · #9C4300 5.1:1 · #C1272D 4.5:1
+   · #7A1F2B 7.9:1. The ::after bar keeps its own saffron gradient. */
+@supports (-webkit-background-clip:text){
+  .hero__title{
+    background-image:linear-gradient(95deg,#C2185B 0%,#1E4E9A 22%,#6A1B9A 42%,#9C4300 62%,#C1272D 82%,#7A1F2B 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    color:transparent;
+  }
+}
+
+/* High-contrast / forced-colours mode: drop the gradient so the title keeps the
+   system's text colour instead of turning into an invisible transparent box. */
+@media (forced-colors: active){
+  .hero__title{
+    background-image:none;
+    -webkit-text-fill-color:currentColor;
+    color:CanvasText;
+  }
+}
+
+/* Print and text-only fallbacks: solid maroon again, never a blank heading. */
+@media print{
+  .hero__title{ background-image:none; -webkit-text-fill-color:currentColor; color:var(--maroon); }
+}
 .hero__title::after{ content:""; display:block; width:104px; height:5px; margin-top:.42em; border-radius:99px; background:var(--grad-warm); }
 .hero__tagline{ font-family:var(--font-display); font-size:clamp(1.1rem, 2.4vw, 1.45rem); color:var(--red); margin:0 0 .6em; line-height:1.55; }
 .hero__lede{ max-width:54ch; color:var(--ink-2); margin:0 0 1.5em; }

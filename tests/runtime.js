@@ -7,7 +7,7 @@
      • homepage carousel  — every manifest image is a slide, navigation, wrap
                             around, counter, dots, keyboard, deleting bad files
      • Reel Star          — the page itself, homepage card, schedule, explorer
-     • registration       — preselect, age validation, payload, success card
+     • registration       — preselect, class eligibility, payload, success card
      • WhatsApp           — every rendered button uses the exact invitation URL
 
    Run with:  npm run test:runtime
@@ -61,7 +61,7 @@ async function boot(file, search, beforeParse) {
   return { dom, window: dom.window, document: dom.window.document, errors };
 }
 
-function fillRegistration(doc, { age } = {}) {
+function fillRegistration(doc) {
   const w = doc.defaultView;
   const set = (id, value) => {
     const el = doc.getElementById(id);
@@ -72,7 +72,6 @@ function fillRegistration(doc, { age } = {}) {
   };
   set('studentName', 'रोहन अमोल शिंदे');
   set('standard', '6');
-  if (age !== undefined) set('age', String(age));
   set('schoolName', 'शिरवळ विद्यालय');
   set('city', 'शिरवळ');
   set('guardianName', 'अमोल शिंदे');
@@ -111,11 +110,14 @@ function stubFetch(win, response) {
     check(dots.length === manifest.length, `Pagination has one dot per image (${dots.length})`);
     check(slides.every(s => s.querySelector('.carousel__img').getAttribute('alt')), 'Every slide has alt text');
 
-    /* every committed repository image is present, in manifest order */
+    /* every committed gallery photograph is present, in manifest order; the
+       अध्यक्ष portrait (logo-left.png) belongs to the hero, never to the gallery */
     const srcs = slides.map(s => s.querySelector('.carousel__img').getAttribute('src'));
     const repoImages = fs.readdirSync(ROOT)
-      .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile());
-    check(repoImages.every(f => srcs.includes(f)), 'No repository image is missing from the carousel');
+      .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile()
+        && f !== 'logo-left.png');
+    check(repoImages.every(f => srcs.includes(f)), 'No repository photograph is missing from the carousel');
+    check(!srcs.includes('logo-left.png'), 'The अध्यक्ष portrait is not a carousel slide');
     check(srcs[0] === manifest[0].src && srcs[srcs.length - 1] === manifest[manifest.length - 1].src,
       'First and last manifest images are the first and last slides');
 
@@ -188,8 +190,11 @@ function stubFetch(win, response) {
     check(cards.length === 10, `Homepage shows 10 competition cards (${cards.length})`);
     const reelCard = cards.find(c => /reel-star\.html$/.test(c.getAttribute('href')));
     check(!!reelCard, 'Homepage has a Reel Star card linking to reel-star.html');
-    check(/वय ५ ते १० वर्षे/.test(text(reelCard)), 'Reel Star card shows the 5–10 year age eligibility');
-    check(!/इयत्ता ५ वी ते १० वी/.test(text(reelCard)), 'Reel Star card is not described as classes 5–10');
+    check(/इयत्ता ५ वी ते १० वी/.test(text(reelCard)), 'Reel Star card shows इयत्ता ५ वी ते १० वी');
+    check(/संध्याकाळी ५ वाजता/.test(text(reelCard)), 'Reel Star card shows the 5 pm deadline');
+    check(!/वय/.test(text(reelCard)), 'Reel Star card carries no age wording');
+    const chips = [...document.querySelectorAll('.hero__chips .chip')].map(c => text(c)).join(' | ');
+    check(!/वय|वयोगट/.test(chips), 'Hero chips no longer show a Reel Star age rule: ' + chips);
     check(/२९ नोव्हेंबर २०२६/.test(text(reelCard)), 'Reel Star card shows the 29 November 2026 deadline');
     check(/ऑनलाइन/.test(text(reelCard)), 'Reel Star card is labelled as an online competition');
 
@@ -198,6 +203,7 @@ function stubFetch(win, response) {
     const reelRow = scheduleRows.find(r => /रील स्टार/.test(text(r)));
     check(!!reelRow, 'Schedule includes Reel Star');
     check(/व्हिडिओ सबमिशनची अंतिम तारीख/.test(text(reelRow)), 'Schedule marks Reel Star as a video-submission deadline');
+    check(/संध्याकाळी ५ वाजता/.test(text(reelRow)), 'Schedule shows the 5 pm Reel Star deadline');
     check(/२९ नोव्हेंबर २०२६/.test(text(reelRow)), 'Schedule shows २९ नोव्हेंबर २०२६ for Reel Star');
     check(/प्रत्यक्ष स्थळ किंवा वेळ लागू नाही/.test(text(reelRow)), 'Schedule never implies an in-person Reel Star event');
 
@@ -205,14 +211,18 @@ function stubFetch(win, response) {
     check(onlineCards.length === 4, `Online strip lists all 4 online competitions (${onlineCards.length})`);
     check(onlineCards.some(c => /reel-star/.test(c.getAttribute('href'))), 'Online strip includes Reel Star');
 
-    /* explorer filter */
+    /* explorer filter — ইয়ত্তা based, so only the 5th–10th grades see Reel Star */
     const explorer = document.getElementById('explorerStandard');
-    explorer.value = '0';
+    explorer.value = '4';
+    explorer.dispatchEvent(new window.Event('change', { bubbles: true }));
+    check(!/reel-star\.html/.test(document.getElementById('explorerResults').innerHTML),
+      'Explorer hides Reel Star from इयत्ता ४ थी');
+    explorer.value = '6';
     explorer.dispatchEvent(new window.Event('change', { bubbles: true }));
     check(/reel-star\.html/.test(document.getElementById('explorerResults').innerHTML),
-      'Explorer lists Reel Star for a selected class');
-    check(/वय ५ ते १० वर्षे/.test(text(document.getElementById('explorerResults'))),
-      'Explorer shows the age eligibility for Reel Star');
+      'Explorer lists Reel Star for इयत्ता ६ वी');
+    check(/इयत्ता ५ वी ते १० वी/.test(text(document.getElementById('explorerResults'))),
+      'Explorer shows the इयत्ता ५ वी ते १० वी eligibility for Reel Star');
 
     /* swipe */
     const stage = document.getElementById('carouselStage');
@@ -274,11 +284,15 @@ function stubFetch(win, response) {
     const main = document.getElementById('competitionPage');
     check(/रील स्टार/.test(text(document.querySelector('.cp-head__title'))), 'Page heading is रील स्टार');
     check(document.title.includes('रील स्टार'), 'Document title is updated to रील स्टार');
-    check(/वय ५ ते १० वर्षे/.test(text(main)), 'Page states the 5–10 year age eligibility');
-    check(!/इयत्ता ५ वी ते १० वी/.test(text(main)), 'Page never presents classes 5–10');
+    check(/इयत्ता ५ वी ते १० वी/.test(text(main)), 'Page states इयत्ता ५ वी ते १० वी eligibility');
+    check(!/वय|वयोगट/.test(text(main)), 'Page carries no age wording');
+    check(/स्वतंत्र गट नाहीत/.test(text(main)), 'Page explains that there are no separate groups');
     check(/ऑनलाइन स्पर्धा/.test(text(main)), 'Page is labelled as an online competition');
     check(/२९ नोव्हेंबर २०२६/.test(text(main)), 'Page shows रविवार, २९ नोव्हेंबर २०२६');
     check(/व्हिडिओ सबमिशनची अंतिम तारीख/.test(text(main)), 'Page labels the date as a submission deadline');
+    check(/२९ नोव्हेंबर २०२६, संध्याकाळी ५ वाजता/.test(text(main)), 'Page shows the 5:00 pm deadline');
+    check(/प्रत्यक्ष वेळ/.test(text(main)) && /संध्याकाळी ५ वाजता/.test(text(main)),
+      'The 5 pm cut-off is shown as the submission deadline, not as a live event time');
     check(/नाही — ही ऑनलाइन स्पर्धा आहे/.test(text(main)), 'Page states that there is no physical venue');
     check(/अद्याप जाहीर होणे बाकी/.test(text(main)), 'Unannounced Reel Star details stay explicitly unannounced');
     const cta = document.querySelector('.cp-head__actions a.btn--primary');
@@ -301,56 +315,88 @@ function stubFetch(win, response) {
   console.log('\n[3/4] Registration flow...');
   {
     const { dom, window, document, errors } = await boot('registration.html', '?competition=reel-star');
-    check(document.getElementById('age') !== null, 'Age field is rendered');
-    check(document.getElementById('onlineGroup').hidden === false, 'Online competition section is visible');
-    const reelBox = document.querySelector('[data-comp-checkbox="reel-star"]');
-    check(reelBox && reelBox.checked, 'Reel Star is preselected from ?competition=reel-star');
-    check(/वय ५ ते १० वर्षे/.test(text(document.getElementById('onlineList'))),
-      'Reel Star pick card shows the age eligibility');
-    check(!document.querySelector('[data-comp-checkbox="reel-star"]').closest('.comp-pick')
-      .querySelector('[data-topic-select]'), 'Reel Star asks for no topic');
+    check(document.getElementById('age') === null, 'No age field is rendered (grade-based rule)');
+    check(document.getElementById('onlineGroup').hidden === false,
+      'Online section (with its explanation) is visible before a class is chosen');
+    check(document.querySelector('[data-comp-checkbox="reel-star"]') === null,
+      'No online pick is offered until इयत्ता is chosen — eligibility is grade-based');
+    check(/इयत्ता निवडल्यानंतर/.test(text(document.getElementById('onlineList'))),
+      'Online list explains that picks follow the selected इयत्ता');
+    check(/कृपया आपली इयत्ता निवडा/.test(text(document.getElementById('preselectNote'))),
+      'Preselect note asks for the इयत्ता');
+    check(/इयत्ता ५ वी ते १० वी/.test(text(document.getElementById('preselectNote'))),
+      'Preselect note states the इयत्ता ५ वी ते १० वी range');
 
-    /* picking a class must not drop the રील स्टार selection (it is age-based) */
+    /* इयत्ता ६ वी → रील स्टार is offered, preselected, with no group/topic */
     const std = document.getElementById('standard');
     std.value = '6';
     std.dispatchEvent(new window.Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 40));
-    check(document.querySelector('[data-comp-checkbox="reel-star"]').checked,
-      'Reel Star selection survives a class change');
+    const reelBox = document.querySelector('[data-comp-checkbox="reel-star"]');
+    check(!!reelBox && reelBox.checked, 'Reel Star is preselected once an eligible इयत्ता is chosen');
+    check(/इयत्ता ५ वी ते १० वी/.test(text(document.getElementById('onlineList'))),
+      'Reel Star pick card shows the grade eligibility');
+    check(/संध्याकाळी ५ वाजता/.test(text(document.getElementById('onlineList'))),
+      'Reel Star pick card shows the 5 pm deadline');
+    check(!reelBox.closest('.comp-pick').querySelector('[data-topic-select]'),
+      'Reel Star asks for no topic');
+    check(!reelBox.closest('.comp-pick').querySelector('[data-team-groupname]'),
+      'Reel Star asks for no group');
     check([...document.querySelectorAll('#onlineList [data-comp-checkbox]')].length === 4,
-      'All four online competitions are listed after a class is chosen');
+      'All four online competitions are listed for an eligible class');
 
-    /* age missing → blocked */
-    fillRegistration(document, { age: undefined });
-    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-    await new Promise(r => setTimeout(r, 60));
-    check(/कृपया विद्यार्थ्याचे वय/.test(text(document.getElementById('err-age'))),
-      'Missing age for Reel Star is rejected');
-    check(document.getElementById('successCard').hidden, 'No success card without a valid age');
-
-    /* age out of range → blocked, age range never treated as a class range */
-    fillRegistration(document, { age: 12 });
-    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-    await new Promise(r => setTimeout(r, 60));
-    check(/५ ते १० वर्षे/.test(text(document.getElementById('err-age'))), 'Age 12 is rejected for Reel Star');
-    check(/भरलेले वय: १२/.test(text(document.getElementById('err-age'))), 'The error echoes the entered age in Marathi');
-
-    /* valid age → payload carries the age and the age-based eligibility */
     const calls = stubFetch(window, { result: 'success', reference: 'BSF26-TEST-1' });
-    fillRegistration(document, { age: 8 });
+    fillRegistration(document);
     document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
 
     check(calls.length === 1, 'Exactly one request is sent for a valid Reel Star registration');
     const payload = calls[0] && calls[0].body;
-    check(payload && payload.age === 8, 'Payload carries the numeric age');
+    check(payload && payload.age === undefined, 'Payload carries no age field');
     const reg = payload && payload.registrations.find(r => r.competitionId === 'reel-star');
     check(!!reg, 'Payload carries the reel-star competition id');
-    check(reg && reg.status === 'registered', 'A confirmed age-based entry is not marked pending');
-    check(reg && reg.eligibilityType === 'age' && reg.ageRange === '५ ते १० वर्षे',
-      'Payload carries the age-based eligibility');
+    check(reg && reg.status === 'registered', 'A confirmed grade-based entry is not marked pending');
+    check(reg && reg.eligibilityType === undefined && reg.ageRange === undefined,
+      'Payload carries no age-based eligibility');
+    check(reg && reg.group === '', 'No invented group is attached to a group-less competition');
     check(document.getElementById('successCard').hidden === false, 'Success card appears only after a valid backend response');
-    check(/वय/.test(text(document.getElementById('successSummary'))), 'Success summary shows the age');
+    check(!/वय/.test(text(document.getElementById('successSummary'))), 'Success summary shows no age');
+    check(errors.length === 0, 'No JavaScript errors in the registration flow' + (errors.length ? ': ' + errors.join(' | ') : ''));
+    dom.window.close();
+  }
+
+  /* an ineligible class does not offer Reel Star */
+  {
+    const { dom, window, document } = await boot('registration.html', '?competition=reel-star');
+    const std = document.getElementById('standard');
+    std.value = '4';
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    check(document.querySelector('[data-comp-checkbox="reel-star"]') === null,
+      'Reel Star is not offered to इयत्ता ४ थी');
+    check([...document.querySelectorAll('#onlineList [data-comp-checkbox]')].length === 3,
+      'The three team events remain available to इयत्ता ४ थी');
+    check(/पात्र नाही/.test(text(document.getElementById('formStatus'))),
+      'An ineligible class is told why Reel Star is unavailable');
+    check(document.getElementById('successCard').hidden, 'No success card without an eligible entry');
+    dom.window.close();
+  }
+
+  /* changing to an ineligible class drops a previously valid Reel Star pick */
+  {
+    const { dom, window, document, errors } = await boot('registration.html', '?competition=reel-star');
+    const std = document.getElementById('standard');
+    std.value = '6';
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    check(document.querySelector('[data-comp-checkbox="reel-star"]').checked, 'Reel Star is picked for इयत्ता ६ वी');
+    std.value = '4';
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    check(document.querySelector('[data-comp-checkbox="reel-star"]') === null,
+      'Reel Star disappears when the class drops below इयत्ता ५ वी');
+    check(/काढून टाकल्या/.test(text(document.getElementById('pickedStandard'))),
+      'The dropped selection is reported to the participant');
     check(errors.length === 0, 'No JavaScript errors in the registration flow' + (errors.length ? ': ' + errors.join(' | ') : ''));
     dom.window.close();
   }
@@ -358,7 +404,7 @@ function stubFetch(win, response) {
   /* class-based registration is unaffected */
   {
     const { dom, window, document } = await boot('registration.html', '?competition=chitrakala');
-    fillRegistration(document, { age: undefined });
+    fillRegistration(document);
     await new Promise(r => setTimeout(r, 60));
     check(document.querySelector('[data-comp-checkbox="chitrakala"]').checked,
       'Class-based preselection still works');
@@ -369,15 +415,14 @@ function stubFetch(win, response) {
     await new Promise(r => setTimeout(r, 120));
     check(calls.length === 0 && /विषय/.test(text(document.getElementById('err-topic-chitrakala'))),
       'A missing topic still blocks a class-based registration');
-    check(!document.getElementById('age').getAttribute('aria-invalid'),
-      'Age is not required for class-based competitions');
+    check(document.getElementById('age') === null, 'No age field exists for class-based competitions');
     dom.window.close();
   }
 
   /* no valid backend response → no success claim */
   {
     const { dom, window, document } = await boot('registration.html', '?competition=reel-star');
-    fillRegistration(document, { age: 8 });
+    fillRegistration(document);
     window.fetch = () => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('not json') });
     document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
