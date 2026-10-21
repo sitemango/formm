@@ -41,6 +41,7 @@
   var UI = DATA.ui;
   var GALLERY = DATA.gallery || null;
   var ORGANIZER = DATA.organizer || null;
+  var WHATSAPP = DATA.whatsapp || null;
 
   /* ---------------------------------------------------------------- helpers */
   function qs(sel, root) { return (root || document).querySelector(sel); }
@@ -88,12 +89,42 @@
   }
 
   function isEligible(c, standardIndex) {
-    if (!c.eligibility) return true;            // unconfirmed online events: never blocked
+    if (!c.eligibility) return true;            // unconfirmed / age-based events: never blocked by class
     return standardIndex >= c.eligibility.from && standardIndex <= c.eligibility.to;
   }
 
+  /* रील स्टार is age-based (५ ते १० वर्षे), not class-based: class selection
+     can never block it, the age field in the registration form does. */
+  function isAgeBased(c) {
+    return !!c && c.eligibilityType === 'age' && !!c.ageEligibility;
+  }
+
+  /* Everything a card / page needs to say about eligibility, in one place. */
+  function eligibilityText(c) {
+    if (isAgeBased(c)) return 'वय ' + c.ageEligibility.label + ' (वयोगट)';
+    if (c.eligibility) return rangeText(c.eligibility.from, c.eligibility.to);
+    return 'निश्चित होणे बाकी';
+  }
+
+  function isAgeEligible(c, age) {
+    if (!isAgeBased(c)) return true;
+    if (age === null || age === undefined || age === '') return false;
+    var n = Number(age);
+    if (!isFinite(n)) return false;
+    return n >= c.ageEligibility.min && n <= c.ageEligibility.max;
+  }
+
+  /* "व्हिडिओ पाठविण्याची अंतिम तारीख" for the team events, the competition's
+     own label when it sets one (रील स्टार: "व्हिडिओ सबमिशनची अंतिम तारीख"). */
+  function onlineDeadlineLabel(c) {
+    return (c && c.schedule && c.schedule.deadlineLabel) || UI.deadlineLabel;
+  }
+
   function eligibleFor(standardIndex) {
-    return C.filter(function (c) { return c.eligibility && isEligible(c, standardIndex); });
+    return C.filter(function (c) {
+      if (isAgeBased(c) || !c.eligibility) return true;   // age-checked in the form, not by class
+      return isEligible(c, standardIndex);
+    });
   }
 
   function onlineCompetitions() {
@@ -215,6 +246,23 @@
         '<path d="M12 3.4c2.4 2.6 3.6 5.6 3.6 8.6s-1.2 6-3.6 8.6c-2.4-2.6-3.6-5.6-3.6-8.6S9.6 6 12 3.4Z"/>' +
       '</symbol>' +
 
+      '<symbol id="i-reel" viewBox="0 0 24 24">' +
+        '<rect x="3.4" y="3.6" width="17.2" height="16.8" rx="4.2"/>' +
+        '<path d="M8.4 8.2l7.2 3.8-7.2 3.8V8.2Z"/>' +
+        '<path d="M8.4 3.6v2M15.6 3.6v2"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-whatsapp" viewBox="0 0 24 24">' +
+        '<path d="M12.04 2.6a9.3 9.3 0 0 0-7.9 14.2L2.8 21.4l4.7-1.3a9.3 9.3 0 1 0 4.54-17.5Z"/>' +
+        '<path d="M8.6 7.9c.2-.5.5-.5.8-.5.3 0 .5 0 .7.5l.7 1.6c.1.3.1.4-.1.7l-.5.6c-.2.2-.1.4 0 .6a7 7 0 0 0 3.2 2.8c.3.1.5.1.6-.1l.6-.7c.2-.2.4-.2.6-.1l1.6.8c.4.2.5.4.4.7-.2 1.3-1.5 2-2.6 1.9a9.5 9.5 0 0 1-7.1-6.2c-.3-1 .2-2 .8-2.4Z"/>' +
+      '</symbol>' +
+
+      '<symbol id="i-age" viewBox="0 0 24 24">' +
+        '<circle cx="12" cy="7.4" r="3.2"/>' +
+        '<path d="M6 20.4c0-3.3 2.7-6 6-6s6 2.7 6 6"/>' +
+        '<path d="M17.6 4.6h4M19.6 2.6v4"/>' +
+      '</symbol>' +
+
       '<symbol id="i-users" viewBox="0 0 24 24">' +
         '<circle cx="9.2" cy="8.4" r="3.2"/>' +
         '<path d="M3.6 19.4c0-3 2.5-5.3 5.6-5.3s5.6 2.3 5.6 5.3"/>' +
@@ -270,6 +318,34 @@
     '</span>';
   }
 
+  /* --------------------------------------------------------- WhatsApp group */
+  /* One invitation link, configured once in data.js (window.FESTIVAL.whatsapp)
+     and reused by the header, the footer and every button site.js renders.
+     GitHub Pages has no server, so the link simply opens in a new tab. */
+  function whatsappHref() {
+    return (WHATSAPP && WHATSAPP.url) ? WHATSAPP.url : '';
+  }
+
+  /* opts: { size: 'lg'|'sm'|'', variant: 'outline', label, cls } — the default
+     variant is the WhatsApp-green primary button. */
+  function whatsappButton(opts) {
+    var url = whatsappHref();
+    if (!url) return '';
+    opts = opts || {};
+    var classes = 'btn wa-btn' +
+      (opts.variant === 'outline' ? ' btn--outline' : ' btn--whatsapp') +
+      (opts.size === 'lg' ? ' btn--lg' : '') +
+      (opts.cls ? ' ' + opts.cls : '');
+    var label = opts.label || WHATSAPP.label || 'Join WhatsApp Group';
+    var aria = WHATSAPP.ariaLabel || label;
+    return '<a class="' + classes + '" href="' + escapeHtml(url) + '"' +
+      ' target="_blank" rel="noopener noreferrer" data-whatsapp-link' +
+      ' aria-label="' + escapeHtml(aria) + '">' +
+      icon('#i-whatsapp', 'wa-btn__icon') +
+      '<span class="wa-btn__label">' + escapeHtml(label) + '</span>' +
+    '</a>';
+  }
+
   function renderHeader() {
     var host = qs('#siteHeader');
     if (!host) return;
@@ -312,7 +388,17 @@
             '</li>' +
             '<li><a class="nav__link' + (page === 'registration' ? ' is-active' : '') + '" href="registration.html">' + escapeHtml(UI.navRegister) + '</a></li>' +
           '</ul>' +
-          '<a class="btn btn--primary nav__cta" href="registration.html">' + escapeHtml(UI.navRegister) + '</a>' +
+          '<div class="nav__actions">' +
+            (whatsappHref()
+              ? '<a class="btn btn--whatsapp btn--sm nav__wa" href="' + escapeHtml(whatsappHref()) + '"' +
+                  ' target="_blank" rel="noopener noreferrer" data-whatsapp-link' +
+                  ' aria-label="' + escapeHtml((WHATSAPP && WHATSAPP.ariaLabel) || 'Join WhatsApp Group') + '">' +
+                  icon('#i-whatsapp', 'wa-btn__icon') +
+                  '<span class="nav__wa-text">' + escapeHtml((WHATSAPP && WHATSAPP.shortLabel) || 'WhatsApp ग्रुप') + '</span>' +
+                '</a>'
+              : '') +
+            '<a class="btn btn--primary nav__cta" href="registration.html">' + escapeHtml(UI.navRegister) + '</a>' +
+          '</div>' +
         '</nav>' +
       '</div>';
   }
@@ -350,6 +436,13 @@
               '<li><a href="index.html#faq">नेहमी विचारले जाणारे प्रश्न</a></li>' +
               '<li><a href="registration.html">नोंदणी करा</a></li>' +
             '</ul>' +
+            (whatsappHref()
+              ? '<div class="footer__wa">' +
+                  '<p class="footer__nav-title">' + escapeHtml(UI.whatsappGroup || 'WhatsApp ग्रुप') + '</p>' +
+                  whatsappButton({ cls: 'footer__wa-btn', label: WHATSAPP.label || 'Join WhatsApp Group' }) +
+                  (WHATSAPP.note ? '<p class="footer__wa-note">' + escapeHtml(WHATSAPP.note) + '</p>' : '') +
+                '</div>'
+              : '') +
           '</nav>' +
         '</div>' +
         '<p class="footer__note">' + escapeHtml(F.tagline) + '<br/>' +
@@ -460,14 +553,16 @@
         '</h3>' +
         '<p class="ccard__desc">' + escapeHtml(c.blurb) + '</p>' +
         '<span class="ccard__meta">' +
-          (c.eligibility
-            ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' +
-              toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
-            : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>') +
+          (isAgeBased(c)
+            ? 'पात्रता: ' + escapeHtml(eligibilityText(c)) + ' · ऑनलाइन स्पर्धा'
+            : (c.eligibility
+              ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' +
+                toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
+              : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>')) +
         '</span>' +
         (c.schedule ? '<span class="ccard__date">' + icon('#i-cal') +
           (c.schedule.kind === 'online'
-            ? 'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(shortDate(c.schedule.date))
+            ? escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(shortDate(c.schedule.date))
             : escapeHtml(c.schedule.date) + ' · ' + escapeHtml(c.schedule.time)) +
         '</span>' : '') +
         '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
@@ -484,19 +579,24 @@
     var host = qs('#eligibilityList');
     if (!host) return;
 
-    host.innerHTML = C.filter(function (c) { return c.eligibility; }).map(function (c) {
-      var chips = c.groups.map(function (g, gi) {
-        return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
-          escapeHtml(stripGroupPrefix(g.label)) + '</li>';
-      }).join('');
+    host.innerHTML = C.filter(function (c) { return c.eligibility || isAgeBased(c); }).map(function (c) {
+      var chips = isAgeBased(c)
+        ? '<li class="chip chip--soft">' + icon('#i-age') + ' ' +
+            escapeHtml(c.ageEligibility.label) + ' (' + escapeHtml(UI.ageEligibilityLabel) + ')</li>' +
+          '<li class="chip chip--soft">' + icon('#i-online') + ' ऑनलाइन स्पर्धा — ' +
+            escapeHtml(shortDate(c.schedule.date)) + '</li>'
+        : c.groups.map(function (g, gi) {
+            return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
+              escapeHtml(stripGroupPrefix(g.label)) + '</li>';
+          }).join('');
       return '' +
         '<article class="erow reveal" data-accent="' + c.accent + '">' +
           '<div class="erow__head">' +
             '<span class="erow__icon">' + icon(c.icon) + '</span>' +
             '<h3 class="erow__title"><a href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
               (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') + '</h3>' +
-            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + '</strong>' +
-              (c.isTeam ? ' · संघ स्पर्धा' : '') + '</p>' +
+            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong>' +
+              (c.isTeam ? ' · संघ स्पर्धा' : '') + (c.mode === 'online' ? ' · ऑनलाइन स्पर्धा' : '') + '</p>' +
           '</div>' +
           '<ul class="erow__chips">' + chips + '</ul>' +
         '</article>';
@@ -529,7 +629,10 @@
       var index = Number(select.value);
       if (hint) hint.innerHTML = 'निवडलेली इयत्ता: <strong>' + escapeHtml(standardLabel(index)) + '</strong>';
 
-      var list = eligibleFor(index).filter(function (c) { return !c.isTeam; }).map(function (c) {
+      var personal = eligibleFor(index).filter(function (c) { return c.mode === 'offline'; });
+      var online = eligibleFor(index).filter(function (c) { return c.mode === 'online'; });
+
+      var list = personal.map(function (c) {
         var g = groupFor(c, index);
         return '' +
           '<li class="ex-item" data-accent="' + c.accent + '">' +
@@ -543,14 +646,16 @@
           '</li>';
       }).join('');
 
-      var online = eligibleFor(index).filter(function (c) { return !!c.isTeam; }).map(function (c) {
-        var tg = groupFor(c, index);
+      var onlineItems = online.map(function (c) {
+        var tg = c.isTeam ? groupFor(c, index) : null;
+        var detail = c.isTeam
+          ? 'गट: <strong>' + escapeHtml(groupDisplay(c, tg)) + '</strong> · संघ स्पर्धा'
+          : 'पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong> · ऑनलाइन स्पर्धा';
         return '<li class="ex-item ex-item--online" data-accent="' + c.accent + '">' +
           '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
           '<span class="ex-item__body">' +
             '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
-            '<span class="ex-item__group">गट: <strong>' + escapeHtml(groupDisplay(c, tg)) +
-              '</strong> · संघ स्पर्धा</span>' +
+            '<span class="ex-item__group">' + detail + '</span>' +
           '</span>' +
           '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
         '</li>';
@@ -558,11 +663,11 @@
 
       results.innerHTML =
         '<div class="ex-group"><p class="ex-group__title">वैयक्तिक स्पर्धा (' +
-          toMarathi(eligibleFor(index).filter(function (c) { return !c.isTeam; }).length) +
+          toMarathi(personal.length) +
           ')</p><ul class="ex-list">' + list + '</ul></div>' +
-        '<div class="ex-group"><p class="ex-group__title">संघ स्पर्धा — ऑनलाइन (' +
-          toMarathi(eligibleFor(index).filter(function (c) { return !!c.isTeam; }).length) +
-          ')</p><ul class="ex-list">' + online + '</ul></div>';
+        '<div class="ex-group"><p class="ex-group__title">ऑनलाइन स्पर्धा (' +
+          toMarathi(online.length) +
+          ')</p><ul class="ex-list">' + onlineItems + '</ul></div>';
     });
 
     empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
@@ -572,16 +677,24 @@
     var host = qs('#onlineStrip');
     if (!host) return;
     var items = onlineCompetitions().map(function (c) {
+      /* team events list their duration + minimum participants; वय-आधारित
+         events (रील स्टार) list their age group instead — no invented rules. */
+      var note = c.isTeam && c.duration
+        ? 'ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
+          ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी'
+        : 'ऑनलाइन स्पर्धा' + (isAgeBased(c)
+            ? ' · ' + escapeHtml(UI.ageEligibilityLabel) + ': ' + escapeHtml(c.ageEligibility.label)
+            : '');
       return '<a class="online-card reveal" href="' + c.page + '" data-accent="' + c.accent + '">' +
         '<span class="online-card__icon">' + icon(c.icon) + '</span>' +
         '<span class="online-card__body">' +
           '<span class="online-card__name">' + escapeHtml(c.name) +
-            ' <span class="online-card__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span></span>' +
-          '<span class="online-card__note">ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
-            ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी</span>' +
+            (c.nameLatin ? ' <span class="online-card__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
+          '</span>' +
+          '<span class="online-card__note">' + note + '</span>' +
           (c.schedule
             ? '<span class="online-card__date">' + icon('#i-cal') +
-              'व्हिडिओ पाठविण्याची अंतिम तारीख: ' + escapeHtml(c.schedule.date) + '</span>'
+              escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(c.schedule.date) + '</span>'
             : '') +
         '</span>' +
         '<span class="online-card__go">' + icon('#i-arrow') + '</span>' +
@@ -609,7 +722,7 @@
     host.innerHTML = rows.map(function (c) {
       var sch = c.schedule;
       var when = sch.kind === 'online'
-        ? '<span class="sched__k">' + escapeHtml(UI.deadlineLabel) + '</span>' +
+        ? '<span class="sched__k">' + escapeHtml(onlineDeadlineLabel(c)) + '</span>' +
           '<span class="sched__v">' + escapeHtml(sch.date) + '</span>'
         : '<span class="sched__k">' + escapeHtml(UI.dateLabel) + '</span>' +
           '<span class="sched__v">' + escapeHtml(sch.date) + '</span>';
@@ -626,7 +739,7 @@
             '<span class="srow__meta">' + when + '</span>' +
             (sch.kind === 'online'
               ? '<span class="srow__meta"><span class="sched__k">स्वरूप</span>' +
-                '<span class="sched__v">ऑनलाइन स्पर्धा</span></span>'
+                '<span class="sched__v">ऑनलाइन स्पर्धा — प्रत्यक्ष स्थळ किंवा वेळ लागू नाही</span></span>'
               : '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.timeLabel) + '</span>' +
                 '<span class="sched__v">' + escapeHtml(sch.time) + '</span></span>' +
                 '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.venueLabel) + '</span>' +
@@ -709,12 +822,45 @@
   }
 
   /* =============================================================== GALLERY */
-  /* 1.png … 15.png are probed before anything is rendered: whichever files
-     actually exist become slides, the rest are never inserted into the page. */
-  function galleryCandidates() {
-    if (!GALLERY) return [];
-    var folder = GALLERY.folder || '';
+  /* gallery.images in data.js is the explicit manifest: EVERY photograph in the
+     repository, referenced by its real filename (numbered JPEGs, PNGs and the
+     "WhatsApp Image …" uploads alike). Nothing is derived from a number range,
+     so a file whose name does not follow 1.jpeg…15.jpeg is still a slide. */
+  function galleryFolder() {
+    var folder = (GALLERY && GALLERY.folder) || '';
     if (folder && folder.charAt(folder.length - 1) !== '/') folder += '/';
+    return folder;
+  }
+
+  /* the explicit manifest, ready for the renderer */
+  function galleryManifest() {
+    if (!GALLERY || !GALLERY.images || !GALLERY.images.length) return [];
+    var folder = galleryFolder();
+    var prefix = GALLERY.altPrefix || '';
+    var out = [];
+    var seen = {};
+    GALLERY.images.forEach(function (item, i) {
+      if (typeof item === 'string') item = { src: item };
+      if (!item || !item.src) return;
+      var src = String(item.src);
+      /* keep the original filename; only prepend the configured folder */
+      if (folder && src.indexOf('/') === -1) src = folder + src;
+      if (seen[src]) return;                 /* never render the same file twice */
+      seen[src] = true;
+      out.push({
+        src: src,
+        alt: item.alt || (prefix + toMarathi(i + 1)),
+        caption: item.caption || ''
+      });
+    });
+    return out;
+  }
+
+  /* Legacy fallback: projects without a manifest keep working from
+     start / count / extensions (first extension that exists wins). */
+  function galleryNumbered() {
+    if (!GALLERY) return [];
+    var folder = galleryFolder();
     var start = Number(GALLERY.start) || 1;
     var count = Number(GALLERY.count) || 0;
     var exts = (GALLERY.extensions && GALLERY.extensions.length)
@@ -724,14 +870,22 @@
     for (var n = start; n < start + count; n++) {
       out.push({
         number: n,
-        /* e.g. 1.jpeg, 1.jpg, 1.png — the first file that loads wins, so the
-           gallery works whatever format the photographs were uploaded in. */
         urls: exts.map(function (ext) { return folder + n + '.' + ext; }),
         caption: (GALLERY.captions && GALLERY.captions[String(n)]) || '',
         alt: (GALLERY.altPrefix || '') + toMarathi(n)
       });
     }
     return out;
+  }
+
+  function galleryCandidates() {
+    var manifest = galleryManifest();
+    if (manifest.length) return manifest;
+
+    /* no manifest → legacy numbered candidates, resolved by probeFirst() */
+    return galleryNumbered().map(function (c) {
+      return { src: c.urls[0], urls: c.urls, alt: c.alt, caption: c.caption };
+    });
   }
 
   /* resolve the first URL of a slide that actually exists */
@@ -744,6 +898,34 @@
         });
       });
     }, Promise.resolve(null));
+  }
+
+  /* Confirm a list of slides with a small worker pool, so a long manifest does
+     not open dozens of parallel requests. Every item resolves to itself with
+     its real dimensions, or to null when the file is missing / undecodable. */
+  function probeAll(items, limit) {
+    var results = new Array(items.length);
+    var cursor = 0;
+    var workers = Math.max(1, Math.min(limit || 6, items.length));
+    function next() {
+      if (cursor >= items.length) return Promise.resolve();
+      var i = cursor++;
+      var item = items[i];
+      var chain = item.urls
+        ? probeFirst(item.urls)
+        : probeImage(item.src).then(function (size) {
+            return size ? { url: item.src, width: size.width, height: size.height } : null;
+          });
+      return chain.then(function (found) {
+        results[i] = found
+          ? { src: found.url, alt: item.alt, caption: item.caption, width: found.width, height: found.height }
+          : null;
+        return next();
+      });
+    }
+    var runners = [];
+    for (var w = 0; w < workers; w++) runners.push(next());
+    return Promise.all(runners).then(function () { return results; });
   }
 
   function probeImage(src) {
@@ -772,50 +954,41 @@
     var candidates = galleryCandidates();
     if (!candidates.length) { section.hidden = true; return; }
 
-    var rendered = '';
-    var settled = false;
-
-    function show(list, startIndex) {
-      if (!list.length) return;
-      var key = list.map(function (i) { return i.src; }).join('|');
-      if (key === rendered) return;                 /* already on screen */
-      buildCarousel(host, list, startIndex || 0);
-      rendered = key;
+    /* The manifest is painted straight away, so the counter, the dots and the
+       arrows describe the real list from the first frame — no waiting for a
+       network round-trip per file. */
+    function paint(list, start) {
+      if (!list.length) { section.hidden = true; host.innerHTML = ''; return; }
+      buildCarousel(host, list, start || 0);
       section.hidden = false;
       if (typeof window.__festivalReveal === 'function') window.__festivalReveal();
     }
 
-    /* Fallback: put every candidate on screen straight away and let each
-       image's own error handler drop the files that are not really there. */
-    function paintAll() {
-      show(candidates.map(function (c) {
-        return { src: c.urls[0], caption: c.caption, alt: c.alt, width: 0, height: 0 };
-      }));
-    }
+    paint(candidates, 0);
 
-    /* Preferred path: confirm which files exist, so the counter, the dots and
-       the arrows are exact from the very first paint. */
-    Promise.all(candidates.map(function (item) { return probeFirst(item.urls); }))
-      .then(function (results) {
-        settled = true;
-        var images = [];
-        results.forEach(function (found, i) {
-          if (found) images.push({
-            src: found.url,
-            caption: candidates[i].caption,
-            alt: candidates[i].alt,
-            width: found.width,
-            height: found.height
-          });
+    /* Then every file is confirmed in the background (this also catches files
+       that are lazy and therefore not decoded yet). A missing or undecodable
+       file is dropped and the carousel is rebuilt, so it can never leave a
+       broken-image icon, an empty slide, a wrong “x / y” or a dead arrow. */
+    probeAll(candidates, 6).then(function (results) {
+      confirmed = results.filter(Boolean);
+      var current = Number(host.getAttribute('data-current')) || 0;
+      if (confirmed.length === candidates.length) {
+        /* everything is there: just attach the real dimensions */
+        var imgs = qsa('.carousel__img', host);
+        confirmed.forEach(function (item, i) {
+          if (imgs[i] && item.width && item.height) {
+            imgs[i].setAttribute('width', item.width);
+            imgs[i].setAttribute('height', item.height);
+          }
         });
-        if (images.length) show(images);
-        else if (!rendered) section.hidden = true;
-      })
-      .catch(function () { settled = true; if (!rendered) section.hidden = true; });
-
-    /* If probing is slow — or a browser simply never reports back — the
-       photographs are shown anyway; missing ones are pruned on error. */
-    window.setTimeout(function () { if (!settled && !rendered) paintAll(); }, 1200);
+        return;
+      }
+      paint(confirmed, Math.min(current, Math.max(0, confirmed.length - 1)));
+    }).catch(function () {
+      /* probing unavailable (very old browser / file://) → the painted list and
+         the per-image error handler in buildCarousel keep the carousel honest */
+    });
   }
 
   function buildCarousel(host, images, startIndex) {
@@ -829,7 +1002,7 @@
               (i === 0 ? '' : ' aria-hidden="true"') + ' data-slide="' + i + '">' +
               '<figure class="carousel__figure">' +
                 '<img class="carousel__img" src="' + escapeHtml(img.src) + '"' +
-                  ' alt="' + escapeHtml(img.alt) + '"' +
+                  ' alt="' + escapeHtml(img.alt || ((GALLERY && GALLERY.altPrefix) || '') + toMarathi(i + 1)) + '"' +
                   (img.width && img.height ? ' width="' + img.width + '" height="' + img.height + '"' : '') +
                   (i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"') + ' />' +
                 (img.caption ? '<figcaption class="carousel__caption">' + escapeHtml(img.caption) + '</figcaption>' : '') +
@@ -844,11 +1017,13 @@
             'aria-label="' + escapeHtml(UI.galleryNext) + '">' + icon('#i-next') + '</button>') +
       '</div>' +
       (single ? '' :
-        '<div class="carousel__dots" id="carouselDots" role="tablist" aria-label="छायाचित्रे">' +
+        '<div class="carousel__dots' + (images.length > 16 ? ' carousel__dots--many' : '') + '"' +
+          ' id="carouselDots" role="tablist" aria-label="छायाचित्रे">' +
           images.map(function (img, i) {
             return '<button class="carousel__dot' + (i === 0 ? ' is-active' : '') + '" type="button" ' +
               'role="tab" aria-selected="' + (i === 0 ? 'true' : 'false') + '" ' +
-              'aria-label="' + escapeHtml(UI.galleryDot + ' ' + toMarathi(i + 1)) + '" data-dot="' + i + '"></button>';
+              'aria-label="' + escapeHtml(UI.galleryDot + ' ' + toMarathi(i + 1) + ' / ' + toMarathi(images.length)) + '"' +
+              ' title="' + escapeHtml(UI.galleryDot + ' ' + toMarathi(i + 1)) + '" data-dot="' + i + '"></button>';
           }).join('') +
         '</div>') +
       '<p class="carousel__count" id="carouselCount" aria-live="polite">' +
@@ -901,7 +1076,7 @@
       img.addEventListener('error', function () { prune(img); });
     });
 
-    if (startIndex) show(index);
+    show(index);                      /* also records data-current for rebuilds */
 
     function show(next) {
       index = (next + images.length) % images.length;
@@ -916,6 +1091,7 @@
         dot.setAttribute('aria-selected', i === index ? 'true' : 'false');
       });
       if (counter) counter.textContent = toMarathi(index + 1) + ' / ' + toMarathi(images.length);
+      host.setAttribute('data-current', String(index));
     }
 
     var prev = qs('#carouselPrev', host);
@@ -988,8 +1164,15 @@
 
     /* --- facts ------------------------------------------------------------ */
     var facts = [];
-    facts.push(fact('पात्रता', c.eligibility ? rangeText(c.eligibility.from, c.eligibility.to) : 'निश्चित होणे बाकी'));
-    facts.push(fact('गट', c.groups.length ? toMarathi(c.groups.length) + ' (इयत्तेनुसार)' : 'निश्चित होणे बाकी'));
+    var ageBased = isAgeBased(c);
+    facts.push(fact(ageBased ? (UI.ageEligibilityLabel || 'वयोगट') : 'पात्रता',
+      ageBased ? c.ageEligibility.label : eligibilityText(c)));
+    if (ageBased) {
+      /* age eligibility is not a class range and has no groups — say so plainly */
+      facts.push(fact('गट', 'नाही (वयोगटानुसार पात्रता)'));
+    } else if (!c.groups.length) {
+      facts.push(fact('गट', 'निश्चित होणे बाकी'));
+    }
     if (isTeam) {
       facts.push(fact('कालावधी', c.duration));
       facts.push(fact('किमान सहभागी', toMarathi(c.teamMin)));
@@ -997,9 +1180,11 @@
       facts.push(fact('एकूण विषय', toMarathi(topicCount(c))));
     }
     facts.push(fact('स्वरूप', isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा'));
+    if (isOnline) facts.push(fact('स्थळ', 'नाही — पूर्णपणे ऑनलाइन'));
     if (c.schedule) {
-      facts.push(fact(c.schedule.kind === 'online' ? 'अंतिम तारीख' : 'दिनांक',
-        shortDate(c.schedule.date)));
+      facts.push(fact(c.schedule.kind === 'online'
+        ? (c.schedule.deadlineLabel || UI.deadlineLabel || 'अंतिम तारीख')
+        : 'दिनांक', shortDate(c.schedule.date)));
     }
 
     /* --- date, time and venue --------------------------------------------- */
@@ -1007,8 +1192,10 @@
     if (c.schedule) {
       var sch = c.schedule;
       var rows = sch.kind === 'online'
-        ? [['व्हिडिओ पाठविण्याची अंतिम तारीख', sch.date],
-           ['स्वरूप', 'ऑनलाइन स्पर्धा (प्रत्यक्ष स्पर्धेची वेळ व ठिकाण लागू नाही)']]
+        ? [[onlineDeadlineLabel(c), sch.date],
+           ['स्वरूप', 'ऑनलाइन स्पर्धा'],
+           ['प्रत्यक्ष ठिकाण', 'नाही — ही ऑनलाइन स्पर्धा आहे'],
+           ['प्रत्यक्ष वेळ', 'नाही — फक्त व्हिडिओ सबमिशनची अंतिम तारीख']]
         : [['दिनांक', sch.date], ['वेळ', sch.time], ['ठिकाण', sch.venue]];
       schedHtml =
         '<section class="cp-block" id="schedule">' +
@@ -1026,7 +1213,19 @@
 
     /* --- eligibility ------------------------------------------------------- */
     var eligHtml = '';
-    if (c.eligibility) {
+    if (ageBased) {
+      var age = c.ageEligibility;
+      eligHtml =
+        '<section class="cp-block" id="eligibility-detail">' +
+          '<h2 class="cp-block__title">पात्रता</h2>' +
+          '<p class="cp-block__lead">ही स्पर्धा <strong>वय ' + escapeHtml(age.label) +
+            '</strong> असलेल्या मुलांसाठी खुली आहे. ही पात्रता <strong>वयानुसार</strong> आहे — ' +
+            'इयत्ता किंवा वर्ग यावर आधारित नाही. वयाची खात्री नोंदणी फॉर्ममध्ये ' +
+            'विद्यार्थ्याचे वय (वर्षे) भरून केली जाते.' +
+          '</p>' +
+          (age.note ? '<p class="cp-note">' + icon('#i-info') + '<span>' + escapeHtml(age.note) + '</span></p>' : '') +
+        '</section>';
+    } else if (c.eligibility) {
       eligHtml =
         '<section class="cp-block" id="eligibility-detail">' +
           '<h2 class="cp-block__title">पात्रता</h2>' +
@@ -1073,7 +1272,12 @@
     }
 
     /* --- how to register (process, not competition rules) ------------------ */
-    var steps = isTeam
+    var steps = ageBased
+      ? ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती, इयत्ता व वय (वर्षे) भरा.',
+         'ऑनलाइन स्पर्धांमधून रील स्टार निवडा.',
+         'फॉर्म विद्यार्थ्याचे वय ' + c.ageEligibility.label + ' असल्याची खात्री करतो.',
+         'माहिती तपासून नोंदणी पाठवा. व्हिडिओ सबमिशनची तांत्रिक सूचना आयोजकांकडून जाहीर होतील.']
+      : isTeam
       ? ['नोंदणी पृष्ठावर आपली माहिती व इयत्ता भरा.',
          'संघ स्पर्धांमधून ही स्पर्धा निवडा — आपला गट इयत्तेनुसार आपोआप निश्चित होईल.',
          'संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) +
@@ -1098,7 +1302,9 @@
         '<p class="cp-note">' + icon('#i-info') + '<span>' +
           (isTeam
             ? 'व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.'
-            : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
+            : ageBased
+              ? 'व्हिडिओचा कालावधी, सबमिशनची पद्धत व मूल्यमापन निकष आयोजकांकडून जाहीर केले जातील.'
+              : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
         '</span></p>') +
       '</section>';
 
@@ -1233,7 +1439,9 @@
           '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
           '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
             (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
-                    : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
+              : ageBased ? '; ' + escapeHtml(c.name) + ' साठी विद्यार्थ्याचे वय ' +
+                  escapeHtml(c.ageEligibility.label) + ' असणे आवश्यक आहे — वयाची नोंद करणे विसरू नका.'
+              : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
           '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
             escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
         '</div>' +
@@ -1265,6 +1473,13 @@
     if (mobile) {
       mobile.addEventListener('input', function () {
         mobile.value = mobile.value.replace(/\D/g, '').slice(0, 10);
+      });
+    }
+
+    var ageInput = qs('#age');
+    if (ageInput) {
+      ageInput.addEventListener('input', function () {
+        ageInput.value = ageInput.value.replace(/\D/g, '').slice(0, 2);
       });
     }
 
@@ -1402,7 +1617,25 @@
 
     var bodyInner = '';
 
-    if (isTeam) {
+    if (isAgeBased(c)) {
+      /* वय-आधारित ऑनलाइन स्पर्धा (रील स्टार): no group, no topic — the age field
+         in section १ does the eligibility check. */
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-age') +
+          escapeHtml(UI.ageEligibilityLabel || 'वयोगट') + ': ' + escapeHtml(c.ageEligibility.label) +
+          ' — ' + escapeHtml(UI.ageHint || '') +
+        '</span>' +
+        '<span class="comp-pick__group">' + icon('#i-online') +
+          'ऑनलाइन स्पर्धा · ' + escapeHtml(onlineDeadlineLabel(c)) + ': ' +
+          escapeHtml(c.schedule ? c.schedule.date : '') +
+        '</span>' +
+        '<span class="comp-pick__group">' + icon('#i-info') +
+          'नोंदणी करण्यापूर्वी विद्यार्थ्याचे वय (वर्षे) विभाग १ मध्ये भरा.' +
+        '</span>' +
+        (c.notes && c.notes.length
+          ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
+          : '');
+    } else if (isTeam) {
       bodyInner =
         '<span class="comp-pick__group">' + icon('#i-check') +
           'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
@@ -1471,9 +1704,11 @@
               '<span class="comp-pick__name">' + escapeHtml(c.name) +
                 (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') + '</span>' +
               '<span class="comp-pick__elig">' +
-                (c.eligibility
-                  ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to))
-                  : 'पात्रता: निश्चित होणे बाकी') +
+                (isAgeBased(c)
+                  ? 'पात्रता: ' + escapeHtml(eligibilityText(c))
+                  : c.eligibility
+                    ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to))
+                    : 'पात्रता: निश्चित होणे बाकी') +
                 (c.mode === 'online' ? ' · ऑनलाइन' : '') +
                 (isTeam ? ' · संघ स्पर्धा' : '') +
               '</span>' +
@@ -1546,7 +1781,9 @@
     var group = qs('#offlineGroup');
     if (!list) return;
     pickState = capturePickState();
-    var eligible = eligibleFor(standardIndex).filter(function (c) { return !c.isTeam; });
+    var eligible = eligibleFor(standardIndex).filter(function (c) {
+      return c.mode !== 'online' && !c.isTeam;
+    });
     if (group) group.hidden = false;
     list.innerHTML = eligible.length
       ? eligible.map(function (c) { return pickCard(c, standardIndex); }).join('')
@@ -1558,16 +1795,17 @@
     var list = qs('#onlineList');
     var group = qs('#onlineGroup');
     if (!list) return;
-    if (standardIndex == null) {            /* still waiting for the class */
-      pickState = capturePickState();
-      list.innerHTML = '';
-      if (group) group.hidden = true;
-      return;
-    }
     pickState = capturePickState();
-    var teams = eligibleFor(standardIndex).filter(function (c) { return !!c.isTeam; });
-    if (group) group.hidden = teams.length === 0;
-    list.innerHTML = teams.map(function (c) { return pickCard(c, standardIndex); }).join('');
+    /* Every online competition — team events (class groups) and वय-आधारित
+       individual events such as रील स्टार — lives in this section. Before a
+       class is chosen only the class-independent (age-based) ones can be
+       listed, so रील स्टार stays selectable straight from its page CTA. */
+    var online = (standardIndex == null)
+      ? C.filter(function (c) { return c.mode === 'online' && (isAgeBased(c) || !c.eligibility); })
+      : eligibleFor(standardIndex).filter(function (c) { return c.mode === 'online'; });
+    pickState = pickState || {};
+    if (group) group.hidden = online.length === 0;
+    list.innerHTML = online.map(function (c) { return pickCard(c, standardIndex); }).join('');
     bindPicks(list);
   }
 
@@ -1590,7 +1828,8 @@
     var c = byId(preselectId);
     if (!c) return;
 
-    /* Online event: nothing to check against, select it right away. */
+    /* Age-based / unconfirmed online event: the class never blocks it, so it is
+       selected right away — रील स्टार's age check happens on submit. */
     if (!c.eligibility) { checkPreselect(c, null); return; }
 
     /* Class-based event: wait until the participant has picked a standard. */
@@ -1625,7 +1864,9 @@
         (group
           ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
             (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.')
-          : 'या ऑनलाइन स्पर्धेची पात्रता व नियम निश्चित होणे बाकी आहेत.') +
+          : isAgeBased(c)
+            ? 'पात्रता: <strong>वय ' + escapeHtml(c.ageEligibility.label) + '</strong> — कृपया विभाग १ मध्ये विद्यार्थ्याचे वय (वर्षे) भरा.'
+            : 'या ऑनलाइन स्पर्धेची पात्रता व नियम निश्चित होणे बाकी आहेत.') +
         '</span>';
     }
   }
@@ -1670,6 +1911,31 @@
 
     var emailValue = email.value.trim();
     if (emailValue && !EMAIL_RE.test(emailValue)) errors.push(setFieldError(email, 'कृपया वैध ईमेल पत्ता भरा.'));
+
+    /* वय (age) — only needed for वय-आधारित competitions such as रील स्टार. The
+       class-based competitions keep their existing behaviour untouched. */
+    var ageInput = qs('#age', form);
+    var ageBasedPicked = selection.some(function (entry) {
+      var c = byId(entry.id);
+      return isAgeBased(c);
+    });
+    if (ageInput) {
+      var ageRaw = ageInput.value.replace(/\D/g, '');
+      if (ageBasedPicked) {
+        var ageRule = byId(selection.filter(function (e) {
+          return isAgeBased(byId(e.id));
+        })[0].id).ageEligibility;
+        if (!ageRaw) {
+          errors.push(setFieldError(ageInput, UI.ageMissing || 'कृपया विद्यार्थ्याचे वय (वर्षे) भरा.'));
+        } else if (!isAgeEligible({ eligibilityType: 'age', ageEligibility: ageRule }, ageRaw)) {
+          errors.push(setFieldError(ageInput,
+            (UI.ageInvalid || 'रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे.') +
+            ' (भरलेले वय: ' + toMarathi(ageRaw) + ')'));
+        }
+      } else if (ageRaw && (Number(ageRaw) < 1 || Number(ageRaw) > 18)) {
+        errors.push(setFieldError(ageInput, 'कृपया योग्य वय (वर्षे) भरा.'));
+      }
+    }
 
     if (!selection.length) errors.push(setError(qs('#err-competitions'), 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.'));
 
@@ -1803,12 +2069,15 @@
   var submitting = false;      // blocks double submits / accidental re-posts
   function buildPayload(form) {
     var standardIndex = Number(qs('#standard', form).value);
+    var ageField = qs('#age', form);
+    var ageValue = ageField ? ageField.value.replace(/\D/g, '') : '';
     return {
       formType: 'balasanskar-festival-2026',
       requestId: requestId(),
       submittedAt: new Date().toISOString(),
       studentName: qs('#studentName', form).value.trim(),
       standard: standardLabel(standardIndex),
+      age: ageValue ? Number(ageValue) : '',
       schoolName: qs('#schoolName', form).value.trim(),
       city: qs('#city', form).value.trim(),
       guardianName: qs('#guardianName', form).value.trim(),
@@ -1823,8 +2092,19 @@
           mode: c ? c.mode : 'offline',
           group: group ? groupDisplay(c, group) : '',
           topic: entry.topic || '',
-          status: (c && (!c.eligibility || !c.groups.length)) ? 'pending-confirmation' : 'registered'
+          /* Only a competition whose eligibility/rules are genuinely still
+             unannounced is "pending". रील स्टार's age rule IS confirmed, so an
+             age-eligible entry is a normal registration. */
+          status: (c && !isAgeBased(c) && (!c.eligibility || (c.pending && !c.groups.length)))
+            ? 'pending-confirmation'
+            : 'registered'
         };
+        if (c && isAgeBased(c)) {
+          reg.eligibilityType = 'age';
+          reg.age = ageValue ? Number(ageValue) : '';
+          reg.ageRange = c.ageEligibility.label;
+          reg.deadline = c.schedule ? c.schedule.date : '';
+        }
         if (c && c.isTeam) {
           var groupEl = qs('#groupname-' + entry.id);
           var membersEl = qs('#members-' + entry.id);
@@ -1928,7 +2208,8 @@
     if (!successCard) return;
 
     var hasPending = payload.registrations.some(function (r) { return r.status === 'pending-confirmation'; });
-    var hasTeam = payload.registrations.some(function (r) { return r.mode === 'online'; });
+    var hasTeam = payload.registrations.some(function (r) { return !!r.team; });
+    var hasAge = payload.registrations.some(function (r) { return r.eligibilityType === 'age'; });
 
     if (summary) {
       var rows = [
@@ -1938,6 +2219,7 @@
         ['गाव / शहर', payload.city],
         ['मोबाइल क्रमांक', payload.mobile]
       ];
+      if (payload.age) rows.push([UI.ageLabel || 'वय (वर्षे)', toMarathi(payload.age)]);
       if (payload.email) rows.push(['ईमेल', payload.email]);
       if (response && response.reference) rows.push(['नोंदणी क्रमांक', response.reference]);
 
@@ -1962,13 +2244,20 @@
 
     var pendingNote = qs('#successPendingNote');
     if (pendingNote) {
-      pendingNote.hidden = !(hasPending || hasTeam);
-      pendingNote.innerHTML = icon('#i-info') +
-        '<span>' + (hasPending
-          ? 'ऑनलाइन स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नसल्याने, त्या नोंदणीची अंतिम पुष्टी आयोजकांकडून केली जाईल.'
-          : 'संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याच्या तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील; ' +
-            'अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे.') +
-        '</span>';
+      var noteParts = [];
+      if (hasPending) {
+        noteParts.push('ज्या स्पर्धांची पात्रता व नियम अद्याप निश्चित झाले नाहीत, त्या नोंदणीची अंतिम पुष्टी आयोजकांकडून केली जाईल.');
+      }
+      if (hasTeam) {
+        noteParts.push('संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याच्या तांत्रिक सूचना ' +
+          'आयोजकांकडून जाहीर करण्यात येतील; संघ स्पर्धांची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे.');
+      }
+      if (hasAge) {
+        noteParts.push('रील स्टारसाठी व्हिडिओ सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे; ' +
+          'सबमिशन व मूल्यमापनाच्या तांत्रिक सूचना आयोजकांकडून जाहीर केल्या जातील.');
+      }
+      pendingNote.hidden = noteParts.length === 0;
+      pendingNote.innerHTML = icon('#i-info') + '<span>' + noteParts.join(' ') + '</span>';
     }
 
     successCard.hidden = false;

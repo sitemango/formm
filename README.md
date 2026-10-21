@@ -8,8 +8,8 @@ third-party carousel library.
 ## Files
 
 ```
-index.html                 homepage: hero, photo gallery, schedule, 9 cards,
-                           eligibility, explorer, FAQ, CTA
+index.html                 homepage: hero, photo gallery, schedule, 10 cards,
+                           eligibility, explorer, FAQ, CTA, WhatsApp group
 chitrakala.html            चित्रकला स्पर्धा
 mehendi.html               मेहंदी स्पर्धा
 nibandh.html               निबंध स्पर्धा
@@ -19,15 +19,19 @@ rangoli.html               रांगोळी स्पर्धा
 group-dance.html           समूह नृत्य        (Group Dance)        — ऑनलाइन
 group-singing.html         समूह गायन        (Group Singing)      — ऑनलाइन
 group-fashion-show.html    समूह फॅशन शो     (Group Fashion Show) — ऑनलाइन
-registration.html          dedicated registration page
+reel-star.html             रील स्टार        (Reel Star)          — ऑनलाइन, वय ५–१०
+registration.html          dedicated registration page (class + age + competitions)
 
 style.css                  one shared stylesheet (tokens, components, layouts)
-data.js                    ALL competition data — the single source of truth
+data.js                    ALL competition data + the carousel image manifest
 site.js                    shared header/nav/footer + page rendering + registration
 Code.gs                    Google Apps Script backend → Google Sheets
 tnc.pdf                    the terms and conditions the form links to
-1.jpeg … 13.jpeg           carousel photographs (add 14./15. when you have them)
-logo-left.png              अध्यक्षांचे छायाचित्र — hero portrait (cut-out PNG)
+1.jpeg … 13.jpeg           numbered carousel photographs
+WhatsApp Image … .jpeg     37 further carousel photographs (original names kept)
+logo-left.png              अध्यक्षांचे छायाचित्र — hero portrait **and** a carousel slide
+tests/verify.js            source-level test suite      (npm test)
+tests/runtime.js           jsdom runtime test suite    (npm run test:runtime)
 ```
 
 Every page loads `style.css`, `data.js` and `site.js` with **relative** paths, so any page
@@ -39,73 +43,76 @@ can be opened directly by URL and the whole thing publishes to GitHub Pages as-i
 
 ---
 
-## 1. Photo carousel — `1.jpeg` … `15.jpeg`
+## 1. Photo carousel — explicit image manifest
 
-The gallery sits on the homepage, between the hero and the competition directory.
+The gallery sits on the homepage, between the hero and the competition directory. It shows
+**every raster image committed in the repository** — 51 files at the time of writing:
 
-**Where the images go:** the project root, next to `index.html`, named
+* `1.jpeg` … `13.jpeg` — the numbered photographs
+* 37 more uploads whose original names are kept, e.g.
+  `WhatsApp Image 2026-10-21 at 21.32.40.jpeg` and `WhatsApp Image 2026-10-21 at 21.38.49 (1).jpeg`
+* `logo-left.png` — the अध्यक्ष portrait. It keeps its own role in the hero section **and**
+  is also a slide, because the gallery must contain every image in the repository.
 
-```
-1.jpeg   2.jpeg   3.jpeg   4.jpeg   5.jpeg   6.jpeg   7.jpeg   8.jpeg
-9.jpeg   10.jpeg  11.jpeg  12.jpeg  13.jpeg  14.jpeg  15.jpeg
-```
-
-The thirteen photographs you uploaded are already committed as `1.jpeg` … `13.jpeg`, so
-the gallery currently shows **13 slides**. Add `14.jpeg` / `15.jpeg` (any time, same
-place) and they appear automatically — no code change.
-
-**How detection works.** On page load the script builds the list of candidate filenames
-from `window.FESTIVAL.gallery` in `data.js`, then checks each one in the background. A
-file that returns 404 or fails to decode is dropped before it is counted, so a missing
-`7.jpeg` never becomes a slide — there is never a broken-image icon or an empty slide.
-Only the images that actually exist are counted, so the counter, the dots and the arrows
-always match reality.
-
-It is written to fail safe:
-
-* the photographs are put on screen quickly even if that background check is slow — after
-  ~1.2 s the gallery simply shows what it has and drops the files that then turn out to be
-  missing (the slide, the dots and the counter are corrected on the spot);
-* on a browser that never reports the check back at all, the photographs still appear, and
-  any file that cannot be displayed is removed the moment the browser says so;
-* if **no** photograph can be displayed, the section stays hidden — never a row of broken
-  image icons.
-
-**Any format works.** For every number the script tries `extensions` in order — currently
-`jpeg`, then `jpg`, then `png` — and uses the first file that really exists. You can
-therefore upload photographs in whatever format your camera or phone produces without
-renaming them.
-
-**Configuring it** — everything lives in `data.js`:
+**How the list is maintained.** `data.js` holds an explicit manifest — one entry per file,
+filename and all. There is no numbering convention any more, so a file whose name does not
+look like `7.jpeg` is never silently dropped:
 
 ```js
 "gallery": {
-  "folder": "",          // "" = project root; use "photos/" to keep them in a folder
-  "start": 1,            // first image number
-  "count": 15,           // how many numbers to probe
-  "extensions": ["jpeg", "jpg", "png"],   // first one that exists wins
+  "folder": "",                       // "" = project root, or e.g. "photos/"
+  "images": [
+    { "src": "1.jpeg",  "alt": "बालसंस्कार फेस्टिवल २०२६ — छायाचित्र १", "caption": "" },
+    { "src": "2.jpeg",  "alt": "…", "caption": "" },
+    …
+    { "src": "WhatsApp Image 2026-10-21 at 21.32.40.jpeg", "alt": "…", "caption": "" },
+    …
+    { "src": "logo-left.png", "alt": "श्री. संदीप गायकवाड — अध्यक्ष …",
+      "caption": "श्री. संदीप गायकवाड — अध्यक्ष, श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ" }
+  ],
   "heading": "बालसंस्कार फेस्टिवल — छायाचित्र दालन",
   "lede": "…",
   "altPrefix": "बालसंस्कार फेस्टिवल २०२६ — छायाचित्र ",
-  "captions": { "1": "…", "2": "…" },   // optional caption per image number
-  "autoplay": true,
-  "intervalMs": 6000
+  "intervalMs": 6000,
+  "autoplay": true
 }
 ```
 
-**Behaviour**
+* **To add a photograph:** upload the file next to `index.html` and add one line to
+  `images` (`{ "src": "the-file-name.jpeg", "alt": "…", "caption": "" }`). Nothing else
+  changes — the renderer, the counter, the dots and the arrows all read the manifest.
+* **Duplicate entries are ignored**, so the same file can never appear twice.
+* `alt` is used verbatim; if it is omitted the script falls back to
+  `altPrefix` + the slide number. `caption` is only rendered when set.
+* `start` / `count` / `extensions` are still in `data.js` as a **legacy fallback** for a
+  project without a manifest (`1.jpeg`, `1.jpg`, `1.png` probing). With a manifest present
+  they are not used.
 
-* one main image at a time, arrows + pagination dots + a “१ / ५” counter
-* swipe on touch devices, `←` / `→` on the keyboard, dots are real buttons
-* `width`/`height` are set from the real image size and `object-fit: contain` is used, so
-  the aspect ratio is preserved and nothing is stretched
-* all slides after the first are `loading="lazy"`
-* alt text comes from `altPrefix` + the image number; add a `captions` entry to show a
-  caption instead
+**How it stays honest.** The manifest is painted immediately, so the counter, the dots and
+the arrows describe the real list from the first frame. A small worker pool (6 at a time)
+then confirms every file in the background:
+
+* a file that 404s or cannot be decoded is removed, and the slide, the dots and the counter
+  are rebuilt — no broken-image icon, no empty slide, no wrong “x / y”;
+* an `<img error>` handler prunes the same way, so a file that disappears after page load
+  is handled too;
+* if **no** image can be displayed the whole section stays hidden;
+* the visitor stays on the same photograph when a rebuild happens (`data-current`).
+
+**Behaviour (unchanged)**
+
+* one main image at a time, arrows + pagination dots + a “१ / ५१” counter
+* swipe on touch devices, `←` / `→` on the keyboard, dots are real buttons with labels
+* `width`/`height` come from the real image size and `object-fit: contain` is used, so the
+  aspect ratio is preserved and nothing is stretched
+* the first slide is `fetchpriority="high"`, the rest are `loading="lazy" decoding="async"`
 * one image → arrows and dots are hidden; **no** images → the whole section stays hidden
-* autoplay pauses on hover/focus, when the tab is hidden, after any manual navigation, and
-  is switched off entirely under `prefers-reduced-motion: reduce`
-* no library — about 60 lines of JavaScript in `buildCarousel()`
+* autoplay pauses on hover/focus, while the tab is hidden and after any manual navigation,
+  and is switched off entirely under `prefers-reduced-motion: reduce`
+* with 50+ images the dots are packed tighter (`.carousel__dots--many`) but there is still
+  exactly one dot per image
+* no library — the whole carousel is vanilla JavaScript in `site.js`
+  (`galleryManifest()`, `galleryCandidates()`, `probeAll()`, `buildCarousel()`)
 
 ---
 
@@ -232,15 +239,24 @@ online strip all read from it, so they can never disagree.
 }
 ```
 
-For the three online competitions `kind` is `"online"` and there is no `time` or `venue` —
-the date is labelled **व्हिडिओ पाठविण्याची अंतिम तारीख**, never as a live-event time:
+For the four online competitions `kind` is `"online"` and there is no `time` or `venue` —
+the date is labelled as a **video deadline**, never as a live-event time. Each competition
+brings its own wording through `deadlineLabel`:
 
 ```js
 "schedule": {
   "kind": "online", "dateISO": "2026-11-27",
   "date": "शुक्रवार, २७ नोव्हेंबर २०२६",
   "time": null, "venue": null,
-  "deadlineLabel": "व्हिडिओ पाठविण्याची अंतिम तारीख"
+  "deadlineLabel": "व्हिडिओ पाठविण्याची अंतिम तारीख"        // the three team events
+}
+
+// रील स्टार (29 November)
+"schedule": {
+  "kind": "online", "dateISO": "2026-11-29",
+  "date": "रविवार, २९ नोव्हेंबर २०२६",
+  "time": null, "venue": null,
+  "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
 }
 ```
 
@@ -257,6 +273,7 @@ The २०२६ schedule:
 | समूह फॅशन शो | शुक्रवार, २७ नोव्हेंबर २०२६ | *व्हिडिओ पाठविण्याची अंतिम तारीख* | ऑनलाइन |
 | एकपात्री नाट्य अभिनय | शनिवार, २८ नोव्हेंबर २०२६ | दुपारी ३ | जिल्हा परिषद प्राथमिक शाळा, मुळी, शिरवळ |
 | रांगोळी | रविवार, २९ नोव्हेंबर २०२६ | सकाळी ९ | एम. ई. एस. इंग्लिश मिडियम स्कूल, शिरवळ |
+| रील स्टार | रविवार, २९ नोव्हेंबर २०२६ | *व्हिडिओ सबमिशनची अंतिम तारीख* | ऑनलाइन — प्रत्यक्ष स्थळ नाही |
 
 Editing a date: change `date` (and `dateISO` so the homepage list stays in order) in
 `data.js` — the competition page, the homepage schedule and the card update together.
@@ -266,7 +283,8 @@ Editing a date: change `date` (and `dateISO` so the homepage list stays in order
 ## 5. The three online team competitions
 
 समूह नृत्य, समूह गायन and समूह फॅशन शो are marked **Online Competition / ऑनलाइन स्पर्धा**
-on the homepage, on their own pages and in the registration form. Their confirmed rules:
+on the homepage, on their own pages and in the registration form (रील स्टार, the fourth
+online competition, is documented in **5b**). Their confirmed rules:
 
 * **पात्रता** — बालवाडी ते इयत्ता १० वी, in four groups:
   गट १ बालवाडी · गट २ इयत्ता १ ली ते ४ थी · गट ३ इयत्ता ५ वी ते ७ वी · गट ४ इयत्ता ८ वी ते १० वी
@@ -320,6 +338,112 @@ Open `data.js` and edit the competition object:
 
 The renderer only prints the sections that exist in the data, so removing a key simply
 removes that section from the page — and adding one adds it everywhere.
+
+---
+
+## 5b. रील स्टार (Reel Star) — online, age 5–10
+
+A fourth **online** competition, added to the same data-driven architecture. Confirmed
+details only:
+
+| Field | Value |
+| --- | --- |
+| Competition | रील स्टार (Reel Star) |
+| Eligibility | **children aged 5–10 years** (वय ५ ते १० वर्षे) — an **age** rule, *not* classes 5–10 |
+| Format | **Online** — no physical venue, no live-event time |
+| Deadline | **रविवार, २९ नोव्हेंबर २०२६** / Sunday, 29 November 2026 (`dateISO: "2026-11-29"`) |
+
+```js
+{
+  "id": "reel-star",
+  "name": "रील स्टार", "nameLatin": "Reel Star",
+  "page": "reel-star.html",
+  "mode": "online",
+  "schedule": {
+    "kind": "online", "dateISO": "2026-11-29", "order": "10",
+    "date": "रविवार, २९ नोव्हेंबर २०२६",
+    "time": null, "venue": null,
+    "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
+  },
+  "eligibility": null,                       // ← no class range on purpose
+  "eligibilityType": "age",
+  "ageEligibility": { "min": 5, "max": 10, "label": "५ ते १० वर्षे", "note": "…" },
+  "groups": [],
+  "isTeam": false,
+  "pending": false,
+  "notes": [ "…still awaiting announcement…" ]
+}
+```
+
+`eligibility: null` + `eligibilityType: "age"` is what keeps it apart from the class-based
+competitions: `isEligible()` never blocks it by class, `isAgeBased()` drives the age UI, and
+`eligibilityText()` prints “वय ५ ते १० वर्षे (वयोगट)” everywhere instead of a class range.
+
+**Where it appears — all from that one object**
+
+* homepage **card** (`#homeCards`) with the online badge, “पात्रता: वय ५ ते १० वर्षे (वयोगट) ·
+  ऑनलाइन स्पर्धा” and the २९ नोव्हेंबर २०२६ deadline
+* homepage **schedule** — its own row, marked *व्हिडिओ सबमिशनची अंतिम तारीख* and
+  “प्रत्यक्ष स्थळ किंवा वेळ लागू नाही”
+* homepage **online strip**, **eligibility overview** (age chip instead of class groups) and
+  the **explorer** (it is listed for every class, with its age rule shown)
+* **`reel-star.html`** — its own page, rendered by the same `renderCompetitionPage()` as all
+  the others: age eligibility, online format, “प्रत्यक्ष ठिकाण: नाही”, the deadline and a
+  CTA to `registration.html?competition=reel-star`
+* **header menu, footer and “इतर स्पर्धा”** lists on every competition page
+* **registration** — see below
+
+**Registration.** The form gains one optional field, **वय (वर्षे)**. It is required *only*
+when रील स्टार is selected (`isAgeEligible()` → 5–10), and it is sent as `age` plus
+`eligibilityType: "age"` / `ageRange` on that entry. Age 12 is rejected with
+“रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे. (भरलेले वय: १२)”.
+Nothing about the class-based competitions changed: the field stays optional, no class range
+is ever consulted for रील स्टार, and no existing validation was relaxed.
+
+**Backend.** `Code.gs` maps `reel-star → रील स्टार`, creates the tenth tab and re-validates
+the age server-side (`AGE_COMPETITIONS`). The sheet gains a **वय (वर्षे)** column (column 5).
+
+**Deliberately unannounced** (never invented): reel duration limits, video submission
+mechanics, judging criteria, prizes and required documents. They appear in the page's
+“अद्याप जाहीर होणे बाकी” notice and in the FAQ wording until the organisers confirm them.
+
+---
+
+## 5c. Join WhatsApp Group button
+
+One invitation link, configured once in `data.js` and never edited anywhere else:
+
+```js
+"whatsapp": {
+  "url": "https://chat.whatsapp.com/CCTGjn1R4vgLxWYgTySjfq?mode=gi_t",
+  "label": "Join WhatsApp Group",
+  "shortLabel": "WhatsApp ग्रुप",
+  "ariaLabel": "Join WhatsApp Group — WhatsApp ग्रुपमध्ये सहभागी व्हा (नवीन टॅबमध्ये उघडेल)",
+  "note": "स्पर्धांच्या सूचना, वेळापत्रकातील बदल आणि नोंदणीसंबंधी माहिती WhatsApp ग्रुपमध्ये मिळेल."
+}
+```
+
+Where it appears:
+
+| Placement | Rendered by | Notes |
+| --- | --- | --- |
+| **Hero** (`index.html`, `.hero__actions`) | static HTML | third button, beside **स्पर्धा पहा** and **नोंदणी करा** — visible without scrolling; registration stays the primary CTA |
+| **Homepage CTA band** | static HTML | below the registration button, with a one-line note |
+| **Header navigation** | `renderHeader()` | every page; full label on wide screens, icon + `aria-label` between 900–1180 px, full-width button inside the mobile menu |
+| **Footer** (उपयुक्त दुवे column) | `renderFooter()` | every page, with the note text |
+
+Styling and behaviour:
+
+* `target="_blank" rel="noopener noreferrer"` — always opens in a new tab
+* `.btn--whatsapp` uses a WhatsApp-inspired green gradient placed inside the existing
+  maroon / saffron / cream palette (no new dependency, no icon font — the glyph is an inline
+  SVG symbol `#i-whatsapp` in the existing sprite)
+* minimum 44 px touch target, `:focus-visible` saffron ring, white-on-green contrast,
+  English label “Join WhatsApp Group” plus a Marathi `aria-label` context
+* the header and footer buttons are marked `data-whatsapp-link`, which the tests use to make
+  sure **every** instance points at the exact supplied URL
+* if `whatsapp.url` is ever emptied, both the header and the footer button disappear rather
+  than rendering a dead link
 
 ---
 
@@ -377,26 +501,32 @@ preflight and works with Apps Script web apps.
 
 | # | Column | # | Column |
 | --- | --- | --- | --- |
-| 1 | नोंदणी तारीख व वेळ | 10 | स्पर्धा |
-| 2 | नोंदणी क्रमांक | 11 | स्पर्धा आयडी |
-| 3 | विद्यार्थ्याचे नाव | 12 | स्वरूप (प्रत्यक्ष / ऑनलाइन) |
-| 4 | इयत्ता | 13 | गट |
-| 5 | शाळेचे नाव | 14 | विषय |
-| 6 | गाव / शहर | 15 | संघाचे नाव (Group Name) |
-| 7 | पालकांचे / संरक्षकाचे नाव | 16 | सहभागी विद्यार्थी |
-| 8 | मोबाइल क्रमांक | 17 | सहभागींची संख्या |
-| 9 | ईमेल | 18 | स्थिती |
+| 1 | नोंदणी तारीख व वेळ | 11 | स्पर्धा |
+| 2 | नोंदणी क्रमांक | 12 | स्पर्धा आयडी |
+| 3 | विद्यार्थ्याचे नाव | 13 | स्वरूप (प्रत्यक्ष / ऑनलाइन) |
+| 4 | इयत्ता | 14 | गट |
+| 5 | **वय (वर्षे)** — new, used by रील स्टार | 15 | विषय |
+| 6 | शाळेचे नाव | 16 | संघाचे नाव (Group Name) |
+| 7 | गाव / शहर | 17 | सहभागी विद्यार्थी |
+| 8 | पालकांचे / संरक्षकाचे नाव | 18 | सहभागींची संख्या |
+| 9 | मोबाइल क्रमांक | 19 | स्थिती |
+| 10 | ईमेल | | |
 
-Individual entries leave columns 15–17 blank; team entries fill them.
+Individual entries leave columns 16–18 blank; team entries fill them. The **वय (वर्षे)**
+column is filled whenever the participant supplied an age (required for रील स्टार, optional
+otherwise). Existing sheets keep working: the header row is only written when a tab is
+created, so add the new column by re-running `setupSheets()` on a fresh spreadsheet, or add
+the header manually to an existing one.
 
 ### 6.4 How a submission is routed
 
 * the server validates every field again (name, standard, school, city, guardian, mobile
-  format, at least one competition, and — for team events — a group name and ≥ 5 members)
+  format, at least one competition, — for team events — a group name and ≥ 5 members, and
+  — for रील स्टार — an age between 5 and 10)
 * each entry is appended to the tab matching its `competitionId`
-  (`chitrakala → चित्रकला`, `group-dance → समूह नृत्य`, …)
+  (`chitrakala → चित्रकला`, `group-dance → समूह नृत्य`, `reel-star → रील स्टार`, …)
 * one student entering three competitions → one row in each of the three tabs, and nothing
-  in the other six
+  in the other seven
 * unknown competitions are skipped rather than guessed, and a malformed request writes
   nothing at all
 * every row carries the same timestamp and a registration reference
@@ -405,17 +535,17 @@ Individual entries leave columns 15–17 blank; team entries fill them.
 * `LockService` serialises concurrent submissions
 * errors return a plain Marathi message with no stack traces or internals
 
-### 6.5 Checking that all nine tabs are receiving entries
+### 6.5 Checking that all ten tabs are receiving entries
 
-1. Submit one test registration for **one individual** and **one team** competition
-   (see 6.6) and watch the matching two tabs gain a row.
+1. Submit one test registration for **one individual**, **one team** and **रील स्टार**
+   competition (see 6.6) and watch the matching three tabs gain a row.
 2. Check the tab name at the bottom of the sheet matches the competition — the row is only
    ever written to the tab for that competition.
 3. In Apps Script: **Executions** shows one log line per request; a failed request is
    listed there with the reason.
 4. `testValidation()` (in `Code.gs`, *Run* from the editor) prints three validation
-   results — a good payload, a team with only three members, and an empty selection —
-   without writing anything to the sheet.
+   results — a good payload (individual + रील स्टार + team), a team with only three
+   members, and an empty selection — without writing anything to the sheet.
 
 ### 6.6 Testing the form without creating false registrations
 
@@ -439,6 +569,15 @@ Individual entries leave columns 15–17 blank; team entries fill them.
   ranges, so append new classes at the end).
 * Only competitions eligible for the chosen class are offered; the group is derived
   automatically and cannot be picked by the participant; only that group’s topics appear.
+* **वय (वर्षे)** is an optional field in section १. It becomes **required only when
+  रील स्टार is selected**, and must then be 5–10. Class-based competitions are untouched:
+  no age is required and no class range is ever used to check रील स्टार.
+* रील स्टार appears in the **ऑनलाइन स्पर्धा** section, is selectable straight from its
+  page CTA (`registration.html?competition=reel-star`) even before a class is chosen, and
+  asks for no group and no topic.
+* An age-eligible रील स्टार entry is sent with `status: "registered"` (its eligibility is
+  confirmed). Only competitions whose rules are genuinely unannounced are marked
+  `pending-confirmation`.
 * Changing the class drops only the selections the new class cannot enter, and the note
   says how many were removed.
 * Each competition page links to `registration.html?competition=<id>`, which pre-selects
@@ -476,23 +615,60 @@ python3 -m http.server 8000
 Opening the files directly with `file://` also works, except that the carousel probes the
 images over the file protocol — use a server when you want to preview the gallery.
 
+## Tests
+
+Two harnesses ship in `tests/`. Both are plain Node scripts — no browser download, no
+network access, no build step.
+
+```bash
+npm install            # one dependency: jsdom (dev only)
+npm test               # source-level suite  → 467 assertions
+npm run test:runtime   # jsdom runtime suite → 76 assertions
+```
+
+`tests/verify.js` inspects the source and the data: every HTML page, the competition data,
+the schedule, the terms checkbox, the group-name flow, the Apps Script contract, the submit
+behaviour, the अध्यक्ष card, and — for this release — **every raster image in the repository
+being present in `gallery.images`**, the रील स्टार data (age 5–10, `dateISO` `2026-11-29`,
+no class range, no venue), the age validation and the exact WhatsApp URL in every button.
+
+`tests/runtime.js` boots `index.html`, `reel-star.html` and `registration.html` in jsdom with
+`data.js` + `site.js` actually running, then drives them:
+
+* carousel — every manifest image becomes a slide, dot and counter entry; next/previous at
+  both ends, wrap-around, dots, keyboard, and a forced `<img error>` that must remove exactly
+  one slide while keeping the dots and the counter correct
+* रील स्टार — page heading/facts/deadline, CTA, homepage card, schedule row, online strip,
+  explorer entry, preselection and age validation (missing age, age 12, age 8)
+* registration — payload contents (`age`, `eligibilityType`, `ageRange`, `status`), the
+  success card appearing only after a valid `{"result":"success"}` response, and the
+  class-based (चित्रकला) flow being unchanged
+* no JavaScript errors are tolerated on any page
+
+Both suites must exit 0. `tnc.pdf` is deliberately **not** asserted as present — it is a
+deployment asset that is not committed in this repository snapshot (see “Still to be
+configured”).
+
+---
+
 ## Publishing on GitHub Pages
 
 1. Push the branch.
 2. **Settings → Pages → Build and deployment → Deploy from a branch**.
 3. Pick the branch and `/ (root)`, save → `https://<user>.github.io/<repo>/`.
 
-Remember to push the images (`1.jpeg` …) and `tnc.pdf` too — they are part of the site, not
-build artefacts.
+Remember to push every photograph listed in `gallery.images` (the numbered JPEGs, the
+`WhatsApp Image …` uploads and `logo-left.png`) and `tnc.pdf` too — they are part of the
+site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v2`, `data.js?v2` and `site.js?v2`. Browsers
+Every page loads its assets as `style.css?v3`, `data.js?v3` and `site.js?v3`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
-raise the number in all eleven HTML files:
+raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v2/?v3/g' *.html
+sed -i 's/?v3/?v4/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.
@@ -503,10 +679,23 @@ Skip link, semantic landmarks, labelled controls, `aria-live` regions, visible f
 keyboard-operable dropdown, carousel and accordions, `prefers-reduced-motion` support,
 touch targets sized for phones, and a `<noscript>` notice on every page.
 
+The WhatsApp group button is a real `<a>` with an `aria-label`
+(“Join WhatsApp Group — WhatsApp ग्रुपमध्ये सहभागी व्हा (नवीन टॅबमध्ये उघडेल)”),
+`target="_blank" rel="noopener noreferrer"`, a ≥ 44 px touch target, a saffron
+`:focus-visible` ring and a contrast-safe white-on-green label. Its accessible name is
+always present, even when the header collapses it to an icon between 900 and 1180 px.
+
 ## Still to be configured by the organisers
 
 * `SPREADSHEET_ID` in `Code.gs` (placeholder: `PUT_YOUR_SPREADSHEET_ID_HERE`)
 * `CONFIG.registrationEndpoint` in `site.js` is configured with the supplied Google Apps Script `/exec` deployment. Verify deployment access before accepting registrations.
-* more photographs as `14.` / `15.`
+* any **new photographs** — add the file plus one line to `gallery.images` in `data.js`
+  (filename + alt text). No code change is needed.
+* **`tnc.pdf`** — the file is linked from the registration form but is not committed in
+  this repository snapshot. Add it next to `index.html` before publishing, or the link will
+  404.
+* रील स्टार details that are **not yet confirmed**: reel duration, video submission
+  mechanics, judging criteria, prizes and required documents. They are shown as
+  “अद्याप जाहीर होणे बाकी” and must not be invented.
 * registration fees, prizes, contact numbers and any further rules — the site deliberately
   shows nothing for these until you supply it

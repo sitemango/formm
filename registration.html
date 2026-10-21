@@ -4,17 +4,17 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>नोंदणी करा | बालसंस्कार फेस्टिवल २०२६</title>
-<meta name="description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. नऊही स्पर्धांसाठी ऑनलाइन नोंदणी." />
+<meta name="description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. सर्व स्पर्धांसाठी ऑनलाइन नोंदणी (रील स्टारसह)." />
 <meta name="theme-color" content="#7A1F2B" />
 <meta property="og:title" content="नोंदणी करा | बालसंस्कार फेस्टिवल २०२६" />
-<meta property="og:description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. नऊही स्पर्धांसाठी ऑनलाइन नोंदणी." />
+<meta property="og:description" content="बालसंस्कार फेस्टिवल २०२६ — श्री राधाकृष्ण फ्रेंड्स क्लब, शिरवळ. सर्व स्पर्धांसाठी ऑनलाइन नोंदणी (रील स्टारसह)." />
 <meta property="og:type" content="website" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='23' fill='%237A1F2B'/%3E%3Cg fill='%23F2A63B'%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(45 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(90 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(135 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(180 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(225 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(270 24 24)'/%3E%3Cellipse cx='24' cy='12' rx='3.2' ry='6.4' transform='rotate(315 24 24)'/%3E%3C/g%3E%3Ccircle cx='24' cy='24' r='5.6' fill='%23FFF7E8'/%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v2" />
+<link rel="stylesheet" href="style.css?v3" />
 </head>
 
 <body data-page="registration">
@@ -43,7 +43,7 @@
       <p class="section-head__kicker">नोंदणी</p>
       <h1 class="section-head__title" style="font-size:clamp(1.7rem,4.2vw,2.5rem)">स्पर्धेसाठी नोंदणी करा</h1>
       <span class="ornament" aria-hidden="true"></span>
-      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील.</p>
+      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील. रील स्टारसाठी विद्यार्थ्याचे वय (५ ते १० वर्षे) भरणे आवश्यक आहे.</p>
     </header>
 
     <div class="register-card">
@@ -73,6 +73,14 @@
               </span>
               <span class="field__hint" id="hint-standard">इयत्ता निवडल्यानंतर पात्र स्पर्धा आपोआप दिसतील.</span>
               <span class="field__error" id="err-standard" role="alert"></span>
+            </label>
+
+            <label class="field" for="age">
+              <span class="field__label">विद्यार्थ्याचे वय (वर्षे) <span class="opt">(रील स्टारसाठी आवश्यक)</span></span>
+              <input class="field__input" type="number" id="age" name="age" inputmode="numeric"
+                     min="1" max="18" step="1" aria-describedby="err-age hint-age" />
+              <span class="field__hint" id="hint-age">रील स्टार स्पर्धा निवडल्यास विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे. इतर स्पर्धांसाठी हे क्षेत्र ऐच्छिक आहे.</span>
+              <span class="field__error" id="err-age" role="alert"></span>
             </label>
 
             <label class="field" for="schoolName">
@@ -131,7 +139,7 @@
             </div>
 
             <div class="selection__group" id="onlineGroup" hidden>
-              <h4 class="selection__title">संघ स्पर्धा — ऑनलाइन
+              <h4 class="selection__title">ऑनलाइन स्पर्धा
                 <span class="tag tag--online english-text">Online</span>
               </h4>
               <p class="selection__note">समूह नृत्य, समूह गायन आणि समूह फॅशन शो या तीन ऑनलाइन संघ स्पर्धा आहेत.
@@ -139,6 +147,11 @@
               प्रत्येक संघासाठी संघाचे नाव (Group Name) व सर्व सहभागी विद्यार्थ्यांची माहिती भरावी लागेल.
               व्हिडिओ पाठविण्याची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे; तांत्रिक सूचना
               आयोजकांकडून जाहीर करण्यात येतील.</p>
+              <p class="selection__note"><strong>रील स्टार</strong> ही ५ ते १० वर्षे वयोगटातील मुलांसाठीची
+              वैयक्तिक ऑनलाइन स्पर्धा आहे. तिची पात्रता इयत्तेनुसार नाही — विद्यार्थ्याचे <strong>वय</strong>
+              (विभाग १ मधील क्षेत्र) ५ ते १० वर्षे असणे आवश्यक आहे. सबमिशनची अंतिम तारीख
+              रविवार, २९ नोव्हेंबर २०२६ आहे; रीलचा कालावधी, सबमिशन पद्धत व मूल्यमापनाचे निकष
+              आयोजकांकडून जाहीर केले जातील.</p>
               <div class="selection__list" id="onlineList"></div>
             </div>
 
@@ -175,8 +188,8 @@
             <p class="check__declaration">
               वरील माहिती मी स्वतः तपासून अचूक भरली आहे आणि निवडलेल्या स्पर्धांसाठी
               माझा/माझ्या पाल्याचा सहभाग निश्चित आहे, याची मी खात्री देतो/देते. संघ स्पर्धांसाठी संघाचे नाव व
-              किमान ५ सहभागींची माहिती देणे आणि व्हिडिओ पाठविण्याच्या सूचनांचे पालन करणे आवश्यक आहे,
-              हे मी समजून घेतले आहे.
+              किमान ५ सहभागींची माहिती देणे, रील स्टारसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असल्याची खात्री
+              देणे, तसेच व्हिडिओ पाठविण्याच्या सूचनांचे पालन करणे आवश्यक आहे, हे मी समजून घेतले आहे.
             </p>
 
             <span class="field__error" id="err-declaration" role="alert"></span>
@@ -217,7 +230,7 @@
 
 <footer id="siteFooter"></footer>
 
-<script src="data.js?v2"></script>
-<script src="site.js?v2"></script>
+<script src="data.js?v3"></script>
+<script src="site.js?v3"></script>
 </body>
 </html>
