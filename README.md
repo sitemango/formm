@@ -602,10 +602,29 @@ member list, no member count) — column 18 always records **नोंदणी 
 
 ## Typography
 
-The homepage title **बालसंस्कार फेस्टिवल २०२६** (`h1.hero__title`) is set in the festival
-red (`var(--red)`, `#C1272D`) rather than the shared maroon heading colour: 4.9:1 against
-the cream background (4.5:1 on the darker cream), so the large heading clears WCAG AA. It is
-one rule in `style.css`; no other heading changed.
+The homepage title **बालसंस्कार फेस्टिवल २०२६** (`h1.hero__title`) is painted with a
+six-colour festival **gradient** — pink → blue → purple → orange → red → maroon — clipped to
+the glyphs, so the words themselves carry the colours (no image, no extra markup):
+
+```css
+@supports (-webkit-background-clip:text){
+  .hero__title{
+    background-image:linear-gradient(95deg,#C2185B 0%,#1E4E9A 22%,#6A1B9A 42%,
+                                     #9C4300 62%,#C1272D 82%,#7A1F2B 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+  }
+}
+```
+
+* **Contrast:** every stop — and the blends between them — clears **4.5:1** on the cream
+  hero (`#EFE1CC`): pink 4.6 · blue 6.3 · purple 7.3 · orange 5.1 · red 4.5 · maroon 7.9.
+  The h1 uses 30–47 px bold, so that comfortably clears WCAG AA (large text needs 3:1).
+* **Fallbacks:** the base rule keeps `color:var(--maroon)`, so a browser without gradient
+  text shows a solid maroon title; `@media (forced-colors: active)` restores
+  `CanvasText`, and `@media print` paints solid maroon again — the heading is never blank.
+* The saffron bar under the title (`.hero__title::after`) is unchanged, and no other heading
+  on the site was touched.
 
 | Role | Family | Weights |
 | --- | --- | --- |
@@ -636,8 +655,8 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 492 + 103 assertions
-npm run test:verify    # source-level suite    → 492 assertions
+npm test               # both suites           → 509 + 103 assertions
+npm run test:verify    # source-level suite    → 509 assertions
 npm run test:runtime   # jsdom runtime suite    → 103 assertions
 ```
 
@@ -682,12 +701,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v6`, `data.js?v6` and `site.js?v6`. Browsers
+Every page loads its assets as `style.css?v7`, `data.js?v7` and `site.js?v7`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v6/?v7/g' *.html
+sed -i 's/?v7/?v8/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

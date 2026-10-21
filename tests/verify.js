@@ -546,6 +546,27 @@ assert(styleCss.includes('--org-size-hero:') && styleCss.includes('var(--organiz
 assert(styleCss.includes('--org-size-footer:') && styleCss.includes('var(--organizer-scale)'), '--org-size-footer scales via --organizer-scale');
 assert(styleCss.includes('.org-name'), '.org-name shared class implemented');
 assert(styleCss.includes('.hero__content{') && styleCss.includes('center'), 'Hero content alignment is centred');
+
+/* homepage title: six-colour gradient, with solid fallbacks */
+const titleRule = (styleCss.match(/\.hero__title\{[^}]*margin:0 0 \.3em;[^}]*\}/) || [''])[0];
+assert(/color:\s*var\(--maroon\);/.test(titleRule),
+  'Hero title keeps a solid maroon fallback colour');
+const gradientRule = (styleCss.match(/background-image:linear-gradient\(95deg,[^)]+\)/) || [''])[0];
+const stops = ['#C2185B', '#1E4E9A', '#6A1B9A', '#9C4300', '#C1272D', '#7A1F2B'];
+assert(gradientRule.length > 0, 'Hero title uses a linear-gradient');
+stops.forEach((hex, i) => {
+  const at = gradientRule.indexOf(hex);
+  assert(at > 0, `Hero title gradient contains stop ${i + 1} ${hex}`);
+  if (i > 0) assert(at > gradientRule.indexOf(stops[i - 1]), `Gradient stop ${hex} follows ${stops[i - 1]} (pink→blue→purple→orange→red→maroon)`);
+});
+assert(styleCss.includes('@supports (-webkit-background-clip:text)'),
+  'Gradient text is behind an @supports feature check');
+assert(styleCss.includes('background-clip:text') && styleCss.includes('-webkit-text-fill-color:transparent'),
+  'Hero title clips the gradient to the glyphs');
+assert(/@media \(forced-colors: active\)\{[\s\S]{0,200}\.hero__title\{[\s\S]{0,200}-webkit-text-fill-color:currentColor/.test(styleCss),
+  'Forced-colours mode restores a visible hero title');
+assert(/@media print\{[\s\S]{0,200}\.hero__title\{ background-image:none/.test(styleCss),
+  'Printing falls back to the solid hero title');
 assert(styleCss.includes('.section-head{') && styleCss.includes('center'), 'Section headings are centred');
 assert(styleCss.includes('.field__input{') || styleCss.includes('.field__input,'), 'Form inputs styled with left-aligned inputs');
 assert(styleCss.includes('.rules') || styleCss.includes('.topics'), 'Dense lists styled with proper padding');
