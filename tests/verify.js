@@ -396,8 +396,8 @@ assert(codeGs.includes("'group-dance':       'समूह नृत्य'"), "
 assert(codeGs.includes("'group-singing':     'समूह गायन'"), "Code.gs maps group-singing -> 'समूह गायन'");
 assert(codeGs.includes("'group-fashion-show': 'समूह फॅशन शो'"), "Code.gs maps group-fashion-show -> 'समूह फॅशन शो'");
 assert(codeGs.includes("'reel-star':"), "Code.gs maps reel-star to its own tab");
-assert(codeGs.includes('AGE_COMPETITIONS'), 'Code.gs declares age-based competitions');
-assert(codeGs.includes("'वय (वर्षे)'"), 'Code.gs adds an age column to the sheet');
+assert(!codeGs.includes('AGE_COMPETITIONS'), 'Code.gs has no age-based competition list');
+assert(!codeGs.includes('वय (वर्षे)'), 'Code.gs sheet keeps the original 18 columns');
 
 // Headers validation
 const expectedHeaders = [
@@ -556,7 +556,7 @@ assert((siteJs.includes('navToggle') || siteJs.includes('hamburger')) && siteJs.
 /* =============================================================================
    SECTION 9: रील स्टार, AGE ELIGIBILITY, CAROUSEL MANIFEST & WHATSAPP
    ========================================================================== */
-console.log('\n[9/9] रील स्टार, age eligibility, carousel manifest & WhatsApp...');
+console.log('\n[9/9] रील स्टार, grade eligibility, carousel manifest & WhatsApp...');
 
 /* ---- 9a. the manifest covers EVERY raster image committed in the repo ---- */
 const imageExt = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
@@ -581,19 +581,20 @@ assert(manifestSrcs.some(f => f.startsWith('WhatsApp Image ')), 'WhatsApp Image 
 assert(manifestSrcs.includes('1.jpeg') && manifestSrcs.includes('13.jpeg'), 'Numbered photos 1.jpeg…13.jpeg are in the carousel');
 assert(DATA.gallery.images.every(i => typeof i.alt === 'string' && i.alt.trim().length > 0), 'Every slide has alt text');
 
-/* ---- 9b. रील स्टार data ---- */
+/* ---- 9b. रील स्टार data (grade-based, like every other competition) ---- */
 const reel = DATA.competitions.find(c => c.id === 'reel-star');
 assert(!!reel, 'रील स्टार exists in data.js');
 assert(reel.name === 'रील स्टार' && reel.nameLatin === 'Reel Star', 'रील स्टार name and English name are correct');
 assert(reel.page === 'reel-star.html', 'रील स्टार page is reel-star.html');
 assert(reel.mode === 'online', 'रील स्टार mode is online');
-assert(reel.eligibilityType === 'age', 'रील स्टार eligibilityType is age');
-assert(reel.eligibility === null, 'रील स्टार has NO class-based eligibility (not इयत्ता ५ ते १०)');
-assert(reel.ageEligibility && reel.ageEligibility.min === 5 && reel.ageEligibility.max === 10,
-  'रील स्टार age range is 5–10 years');
-assert(reel.ageEligibility.label.includes('५') && reel.ageEligibility.label.includes('१०'),
-  'रील स्टार age label is ५ ते १० वर्षे');
-assert(Array.isArray(reel.groups) && reel.groups.length === 0, 'रील स्टार has no class groups');
+assert(reel.eligibilityType === undefined, 'रील स्टार has no age-based eligibility type');
+assert(reel.ageEligibility === undefined, 'रील स्टार carries no age rule');
+assert(reel.eligibility && reel.eligibility.from === 5 && reel.eligibility.to === 10,
+  'रील स्टार eligibility is the class index range 5–10 (इयत्ता ५ वी ते १० वी)');
+assert(DATA.standards[reel.eligibility.from].includes('५') &&
+  DATA.standards[reel.eligibility.to].includes('१०'),
+  'रील स्टार range maps to इयत्ता ५ वी → इयत्ता १० वी');
+assert(Array.isArray(reel.groups) && reel.groups.length === 0, 'रील स्टार has no separate groups');
 assert(reel.schedule && reel.schedule.kind === 'online', 'रील स्टार schedule kind is online');
 assert(reel.schedule.dateISO === '2026-11-29', 'रील स्टार dateISO is 2026-11-29');
 assert(reel.schedule.date === 'रविवार, २९ नोव्हेंबर २०२६', 'रील स्टार Marathi date is रविवार, २९ नोव्हेंबर २०२६');
@@ -603,8 +604,9 @@ assert(reel.isTeam !== true, 'रील स्टार is an individual (not te
 assert(reel.pending === false, 'रील स्टार is not marked as pending');
 assert(Array.isArray(reel.notes) && reel.notes.length > 0, 'रील स्टार keeps unannounced details explicitly unannounced');
 
-/* the age range never appears as a class range */
-assert(!JSON.stringify(reel).includes('इयत्ता ५ वी ते १० वी'), 'रील स्टार is never configured as classes 5–10');
+/* no age wording anywhere in the competition data or the shared copy */
+assert(!JSON.stringify(reel).includes('वय'), 'रील स्टार data carries no age wording');
+assert(!JSON.stringify(reel).includes('वर्षे'), 'रील स्टार data is not described in years');
 
 /* ---- 9c. pages ---- */
 assert(fs.existsSync(path.join(ROOT, 'reel-star.html')), 'reel-star.html exists');
@@ -612,6 +614,7 @@ const reelHtml = fs.readFileSync(path.join(ROOT, 'reel-star.html'), 'utf8');
 assert(reelHtml.includes('data-competition="reel-star"'), 'reel-star.html declares data-competition="reel-star"');
 assert(reelHtml.includes('data-page="competition"'), 'reel-star.html uses the shared competition page architecture');
 assert(reelHtml.includes('<title>रील स्टार |'), 'reel-star.html has its own title');
+assert(reelHtml.includes('इयत्ता ५ वी ते १० वी'), 'reel-star.html meta states the grade range');
 
 /* every competition page is linked from data.js and vice versa */
 DATA.competitions.forEach(c => {
@@ -621,21 +624,24 @@ DATA.competitions.forEach(c => {
 /* homepage is data-driven: cards/schedule/explorer read from data.js */
 assert(indexHtml.includes('id="homeCards"'), 'Homepage renders competition cards from data.js');
 assert(siteJs.includes('onlineCompetitions()') || siteJs.includes('function onlineCompetitions'), 'Homepage online strip is data-driven');
-assert(siteJs.includes("isAgeBased(c)"), 'site.js has age-based eligibility handling');
-assert(siteJs.includes('ageEligibility'), 'site.js reads ageEligibility from data.js');
+assert(siteJs.includes('function eligibilityText'), 'site.js renders eligibility from the class range');
+assert(!siteJs.includes('isAgeBased'), 'site.js has no age-based special case');
+assert(!siteJs.includes('ageEligibility'), 'site.js reads no age rule from data.js');
+assert(siteJs.includes('function hasGroups'), 'site.js distinguishes competitions without groups');
+
+/* the homepage hero no longer advertises an age rule */
+assert(!indexHtml.includes('वय ५ ते १०'), 'Hero/homepage never mentions an age range');
+assert(!indexHtml.includes('रील स्टार: वय'), 'Hero chips no longer show a रील स्टार age chip');
+assert(indexHtml.includes('५ वी ते १० वी'), 'Homepage states the इयत्ता ५ वी ते १० वी range');
 
 /* ---- 9d. registration integration ---- */
-assert(regDoc.getElementById('age') !== null, '#age input exists in registration.html');
-assert(regDoc.getElementById('err-age') !== null, '#err-age error container exists');
-assert(siteJs.includes('function isAgeEligible'), 'site.js implements isAgeEligible()');
-assert(siteJs.includes('UI.ageMissing'), 'site.js requires the age for age-based competitions');
-assert(siteJs.includes('UI.ageInvalid'), 'site.js rejects an out-of-range age');
-assert(siteJs.includes("reg.eligibilityType = 'age'"), 'Payload carries the age-based eligibility');
-assert(siteJs.includes("ageRange"), 'Payload carries the age range for the backend');
-assert(!siteJs.includes("eligibility.from === 5 && c.eligibility.to === 10"), 'Age is never validated through a class range');
+assert(regDoc.getElementById('age') === null, 'registration.html has no age field (grade-based rule)');
+assert(regDoc.getElementById('err-age') === null, 'registration.html has no age error container');
+assert(!siteJs.includes('UI.ageMissing'), 'site.js does not require an age');
+assert(!siteJs.includes('UI.ageInvalid'), 'site.js does not validate an age range');
 assert(codeGs.includes("'reel-star':"), 'Backend has a रील स्टार tab');
-assert(codeGs.includes('AGE_COMPETITIONS'), 'Backend validates the रील स्टार age');
-assert(DATA.ui.ageLabel && DATA.ui.ageLabel.includes('वय'), 'UI has a वय label');
+assert(!codeGs.includes('AGE_COMPETITIONS'), 'Backend carries no age validation');
+assert(!codeGs.includes('वय (वर्षे)'), 'Backend sheet has no age column');
 
 /* ---- 9e. WhatsApp ---- */
 const WA_URL = 'https://chat.whatsapp.com/CCTGjn1R4vgLxWYgTySjfq?mode=gi_t';

@@ -19,8 +19,8 @@ rangoli.html               रांगोळी स्पर्धा
 group-dance.html           समूह नृत्य        (Group Dance)        — ऑनलाइन
 group-singing.html         समूह गायन        (Group Singing)      — ऑनलाइन
 group-fashion-show.html    समूह फॅशन शो     (Group Fashion Show) — ऑनलाइन
-reel-star.html             रील स्टार        (Reel Star)          — ऑनलाइन, वय ५–१०
-registration.html          dedicated registration page (class + age + competitions)
+reel-star.html             रील स्टार        (Reel Star)          — ऑनलाइन, इयत्ता ५ वी–१० वी
+registration.html          dedicated registration page (class + competitions)
 
 style.css                  one shared stylesheet (tokens, components, layouts)
 data.js                    ALL competition data + the carousel image manifest
@@ -38,7 +38,7 @@ Every page loads `style.css`, `data.js` and `site.js` with **relative** paths, s
 can be opened directly by URL and the whole thing publishes to GitHub Pages as-is.
 
 > Note: the previous `script.js` has been split into `data.js` (content) and `site.js`
-> (behaviour) so that all eleven pages share one copy of the navigation, footer and
+> (behaviour) so that all twelve pages share one copy of the navigation, footer and
 > competition data.
 
 ---
@@ -341,7 +341,7 @@ removes that section from the page — and adding one adds it everywhere.
 
 ---
 
-## 5b. रील स्टार (Reel Star) — online, age 5–10
+## 5b. रील स्टार (Reel Star) — online, इयत्ता ५ वी ते १० वी
 
 A fourth **online** competition, added to the same data-driven architecture. Confirmed
 details only:
@@ -349,7 +349,7 @@ details only:
 | Field | Value |
 | --- | --- |
 | Competition | रील स्टार (Reel Star) |
-| Eligibility | **children aged 5–10 years** (वय ५ ते १० वर्षे) — an **age** rule, *not* classes 5–10 |
+| Eligibility | **इयत्ता ५ वी ते १० वी** — a **grade (class)** rule, exactly like the other competitions; there is no age rule anywhere |
 | Format | **Online** — no physical venue, no live-event time |
 | Deadline | **रविवार, २९ नोव्हेंबर २०२६** / Sunday, 29 November 2026 (`dateISO: "2026-11-29"`) |
 
@@ -365,9 +365,8 @@ details only:
     "time": null, "venue": null,
     "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
   },
-  "eligibility": null,                       // ← no class range on purpose
-  "eligibilityType": "age",
-  "ageEligibility": { "min": 5, "max": 10, "label": "५ ते १० वर्षे", "note": "…" },
+  "eligibility": { "from": 5, "to": 10 },  // इयत्ता ५ वी → इयत्ता १० वी
+  "eligibilityNote": "इयत्ता ५ वी ते १० वी — एकच इयत्ता-श्रेणी, स्वतंत्र गट नाहीत.",
   "groups": [],
   "isTeam": false,
   "pending": false,
@@ -375,33 +374,38 @@ details only:
 }
 ```
 
-`eligibility: null` + `eligibilityType: "age"` is what keeps it apart from the class-based
-competitions: `isEligible()` never blocks it by class, `isAgeBased()` drives the age UI, and
-`eligibilityText()` prints “वय ५ ते १० वर्षे (वयोगट)” everywhere instead of a class range.
+`eligibility` uses the same `from`/`to` class indices as every other competition, so
+`isEligible()` filters it by grade like the rest; `eligibilityText()` prints
+“इयत्ता ५ वी ते १० वी” everywhere. What makes it special is only that it has **no groups**
+(`groups: []`, `hasGroups()` is false): the cards, the pick card and the “इतर स्पर्धा”
+lists then say *स्वतंत्र गट नाहीत* instead of naming a group, and no topic is ever asked.
+**No `वय` / `वर्षे` wording and no age field exist anywhere in the site, the tests or the
+backend** — the earlier “age 5–10” rule was removed on request.
 
 **Where it appears — all from that one object**
 
-* homepage **card** (`#homeCards`) with the online badge, “पात्रता: वय ५ ते १० वर्षे (वयोगट) ·
+* homepage **card** (`#homeCards`) with the online badge, “पात्रता: इयत्ता ५ वी ते १० वी ·
   ऑनलाइन स्पर्धा” and the २९ नोव्हेंबर २०२६ deadline
 * homepage **schedule** — its own row, marked *व्हिडिओ सबमिशनची अंतिम तारीख* and
   “प्रत्यक्ष स्थळ किंवा वेळ लागू नाही”
-* homepage **online strip**, **eligibility overview** (age chip instead of class groups) and
-  the **explorer** (it is listed for every class, with its age rule shown)
+* homepage **online strip**, **eligibility overview** (an “स्वतंत्र गट नाहीत” chip) and the
+  **explorer** (it appears only for इयत्ता ५ वी ते १० वी, with its class range shown)
 * **`reel-star.html`** — its own page, rendered by the same `renderCompetitionPage()` as all
-  the others: age eligibility, online format, “प्रत्यक्ष ठिकाण: नाही”, the deadline and a
+  the others: class eligibility, online format, “प्रत्यक्ष ठिकाण: नाही”, the deadline and a
   CTA to `registration.html?competition=reel-star`
 * **header menu, footer and “इतर स्पर्धा”** lists on every competition page
 * **registration** — see below
 
-**Registration.** The form gains one optional field, **वय (वर्षे)**. It is required *only*
-when रील स्टार is selected (`isAgeEligible()` → 5–10), and it is sent as `age` plus
-`eligibilityType: "age"` / `ageRange` on that entry. Age 12 is rejected with
-“रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे. (भरलेले वय: १२)”.
-Nothing about the class-based competitions changed: the field stays optional, no class range
-is ever consulted for रील स्टार, and no existing validation was relaxed.
+**Registration.** There is **no separate age field**. रील स्टार follows the same grade rule
+as every other competition: pick इयत्ता, and the competition is offered (and preselected from
+`?competition=reel-star`) only for इयत्ता ५ वी ते १० वी. Choosing इयत्ता ४ थी hides it,
+drops the selection and explains why (“… पात्र नाही”). The pick card asks for neither a
+topic nor a group; the entry carries `{ competitionId, competition, mode, group: "", topic: "",
+status, … }` and **no `age` / `eligibilityType` / `ageRange`**. Online picks are listed only
+after a class is chosen, because eligibility is grade-based.
 
-**Backend.** `Code.gs` maps `reel-star → रील स्टार`, creates the tenth tab and re-validates
-the age server-side (`AGE_COMPETITIONS`). The sheet gains a **वय (वर्षे)** column (column 5).
+**Backend.** `Code.gs` maps `reel-star → रील स्टार`, creates the tenth tab, and validates the
+same fields as the class-based competitions — there is no age column and no age validation.
 
 **Deliberately unannounced** (never invented): reel duration limits, video submission
 mechanics, judging criteria, prizes and required documents. They appear in the page's
@@ -501,28 +505,27 @@ preflight and works with Apps Script web apps.
 
 | # | Column | # | Column |
 | --- | --- | --- | --- |
-| 1 | नोंदणी तारीख व वेळ | 11 | स्पर्धा |
-| 2 | नोंदणी क्रमांक | 12 | स्पर्धा आयडी |
-| 3 | विद्यार्थ्याचे नाव | 13 | स्वरूप (प्रत्यक्ष / ऑनलाइन) |
-| 4 | इयत्ता | 14 | गट |
-| 5 | **वय (वर्षे)** — new, used by रील स्टार | 15 | विषय |
-| 6 | शाळेचे नाव | 16 | संघाचे नाव (Group Name) |
-| 7 | गाव / शहर | 17 | सहभागी विद्यार्थी |
-| 8 | पालकांचे / संरक्षकाचे नाव | 18 | सहभागींची संख्या |
-| 9 | मोबाइल क्रमांक | 19 | स्थिती |
-| 10 | ईमेल | | |
+| 1 | नोंदणी तारीख व वेळ | 10 | स्पर्धा |
+| 2 | नोंदणी क्रमांक | 11 | स्पर्धा आयडी |
+| 3 | विद्यार्थ्याचे नाव | 12 | स्वरूप |
+| 4 | इयत्ता | 13 | गट |
+| 5 | शाळेचे नाव | 14 | विषय |
+| 6 | गाव / शहर | 15 | संघाचे नाव (Group Name) |
+| 7 | पालकांचे / संरक्षकाचे नाव | 16 | सहभागी विद्यार्थी |
+| 8 | मोबाइल क्रमांक | 17 | सहभागींची संख्या |
+| 9 | ईमेल | 18 | स्थिती |
 
-Individual entries leave columns 16–18 blank; team entries fill them. The **वय (वर्षे)**
-column is filled whenever the participant supplied an age (required for रील स्टार, optional
-otherwise). Existing sheets keep working: the header row is only written when a tab is
-created, so add the new column by re-running `setupSheets()` on a fresh spreadsheet, or add
-the header manually to an existing one.
+Eighteen columns, unchanged from the original design — grade is the only eligibility input,
+so there is **no age column**. (A spreadsheet created while the short-lived age column
+existed may carry a stray **वय (वर्षे)** header; delete that column, or run `setupSheets()`
+on a fresh spreadsheet.) Individual entries leave columns 15–17 blank (no team name, no
+member list, no member count) — column 18 always records **नोंदणी झाली / पुष्टी बाकी**.
 
 ### 6.4 How a submission is routed
 
 * the server validates every field again (name, standard, school, city, guardian, mobile
-  format, at least one competition, — for team events — a group name and ≥ 5 members, and
-  — for रील स्टार — an age between 5 and 10)
+  format, at least one competition, and — for team events — a group name and ≥ 5 members);
+  रील स्टार needs nothing extra, because its eligibility is just इयत्ता ५ वी ते १० वी
 * each entry is appended to the tab matching its `competitionId`
   (`chitrakala → चित्रकला`, `group-dance → समूह नृत्य`, `reel-star → रील स्टार`, …)
 * one student entering three competitions → one row in each of the three tabs, and nothing
@@ -569,13 +572,13 @@ the header manually to an existing one.
   ranges, so append new classes at the end).
 * Only competitions eligible for the chosen class are offered; the group is derived
   automatically and cannot be picked by the participant; only that group’s topics appear.
-* **वय (वर्षे)** is an optional field in section १. It becomes **required only when
-  रील स्टार is selected**, and must then be 5–10. Class-based competitions are untouched:
-  no age is required and no class range is ever used to check रील स्टार.
-* रील स्टार appears in the **ऑनलाइन स्पर्धा** section, is selectable straight from its
-  page CTA (`registration.html?competition=reel-star`) even before a class is chosen, and
-  asks for no group and no topic.
-* An age-eligible रील स्टार entry is sent with `status: "registered"` (its eligibility is
+* There is **no age field**. Every competition — रील स्टार included — is filtered by
+  इयत्ता alone, and रील स्टार is offered only for इयत्ता ५ वी ते १० वी.
+* रील स्टार appears in the **ऑनलाइन स्पर्धा** section once a class is chosen, is
+  preselected from its page CTA (`registration.html?competition=reel-star`) when that class
+  is eligible, and asks for no group and no topic. An ineligible class hides it, drops the
+  selection and explains why.
+* An eligible रील स्टार entry is sent with `status: "registered"` (its eligibility is
   confirmed). Only competitions whose rules are genuinely unannounced are marked
   `pending-confirmation`.
 * Changing the class drops only the selections the new class cannot enter, and the note
@@ -592,6 +595,11 @@ the header manually to an existing one.
   errors, network failures and timeouts show an error and keep the typed data.
 
 ## Typography
+
+The homepage title **बालसंस्कार फेस्टिवल २०२६** (`h1.hero__title`) is set in the festival
+red (`var(--red)`, `#C1272D`) rather than the shared maroon heading colour: 4.9:1 against
+the cream background (4.5:1 on the darker cream), so the large heading clears WCAG AA. It is
+one rule in `style.css`; no other heading changed.
 
 | Role | Family | Weights |
 | --- | --- | --- |
@@ -622,16 +630,17 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 467 + 85 assertions
-npm run test:verify    # source-level suite    → 467 assertions
-npm run test:runtime   # jsdom runtime suite    → 85 assertions
+npm test               # both suites           → 470 + 97 assertions
+npm run test:verify    # source-level suite    → 470 assertions
+npm run test:runtime   # jsdom runtime suite    → 97 assertions
 ```
 
 `tests/verify.js` inspects the source and the data: every HTML page, the competition data,
 the schedule, the terms checkbox, the group-name flow, the Apps Script contract, the submit
 behaviour, the अध्यक्ष card, and — for this release — **every raster image in the repository
-being present in `gallery.images`**, the रील स्टार data (age 5–10, `dateISO` `2026-11-29`,
-no class range, no venue), the age validation and the exact WhatsApp URL in every button.
+being present in `gallery.images`**, the रील स्टार data (इयत्ता ५ वी ते १० वी,
+`dateISO` `2026-11-29`, no groups, no venue, no age wording), the absence of any age field /
+age column, and the exact WhatsApp URL in every button.
 
 `tests/runtime.js` boots `index.html`, `reel-star.html` and `registration.html` in jsdom with
 `data.js` + `site.js` actually running, then drives them:
@@ -640,11 +649,12 @@ no class range, no venue), the age validation and the exact WhatsApp URL in ever
   both ends, wrap-around, dots, keyboard, swipe, autoplay (and its absence under
   `prefers-reduced-motion`), and a forced `<img error>` that must remove exactly one slide
   while keeping the dots and the counter correct
-* रील स्टार — page heading/facts/deadline, CTA, homepage card, schedule row, online strip,
-  explorer entry, preselection and age validation (missing age, age 12, age 8)
-* registration — payload contents (`age`, `eligibilityType`, `ageRange`, `status`), the
-  success card appearing only after a valid `{"result":"success"}` response, and the
-  class-based (चित्रकला) flow being unchanged
+* रील स्टार — page heading/facts/deadline, CTA, homepage card (grade range, no age
+  wording), schedule row, online strip, explorer for इयत्ता ६ वी but not इयत्ता ४ थी
+* registration — grade gating and preselection, payload contents (no `age` /
+  `eligibilityType` / `ageRange`; `status: "registered"`), the success card appearing only
+  after a valid `{"result":"success"}` response, and the class-based (चित्रकला) flow being
+  unchanged
 * no JavaScript errors are tolerated on any page
 
 Both suites must exit 0. `tnc.pdf` is deliberately **not** asserted as present — it is a
@@ -665,12 +675,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v3`, `data.js?v3` and `site.js?v3`. Browsers
+Every page loads its assets as `style.css?v4`, `data.js?v4` and `site.js?v4`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v3/?v4/g' *.html
+sed -i 's/?v4/?v5/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

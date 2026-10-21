@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v3" />
+<link rel="stylesheet" href="style.css?v4" />
 </head>
 
 <body data-page="registration">
@@ -43,7 +43,7 @@
       <p class="section-head__kicker">नोंदणी</p>
       <h1 class="section-head__title" style="font-size:clamp(1.7rem,4.2vw,2.5rem)">स्पर्धेसाठी नोंदणी करा</h1>
       <span class="ornament" aria-hidden="true"></span>
-      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील. रील स्टारसाठी विद्यार्थ्याचे वय (५ ते १० वर्षे) भरणे आवश्यक आहे.</p>
+      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील. रील स्टार इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांसाठी आहे.</p>
     </header>
 
     <div class="register-card">
@@ -73,14 +73,6 @@
               </span>
               <span class="field__hint" id="hint-standard">इयत्ता निवडल्यानंतर पात्र स्पर्धा आपोआप दिसतील.</span>
               <span class="field__error" id="err-standard" role="alert"></span>
-            </label>
-
-            <label class="field" for="age">
-              <span class="field__label">विद्यार्थ्याचे वय (वर्षे) <span class="opt">(रील स्टारसाठी आवश्यक)</span></span>
-              <input class="field__input" type="number" id="age" name="age" inputmode="numeric"
-                     min="1" max="18" step="1" aria-describedby="err-age hint-age" />
-              <span class="field__hint" id="hint-age">रील स्टार स्पर्धा निवडल्यास विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे. इतर स्पर्धांसाठी हे क्षेत्र ऐच्छिक आहे.</span>
-              <span class="field__error" id="err-age" role="alert"></span>
             </label>
 
             <label class="field" for="schoolName">
@@ -147,11 +139,10 @@
               प्रत्येक संघासाठी संघाचे नाव (Group Name) व सर्व सहभागी विद्यार्थ्यांची माहिती भरावी लागेल.
               व्हिडिओ पाठविण्याची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे; तांत्रिक सूचना
               आयोजकांकडून जाहीर करण्यात येतील.</p>
-              <p class="selection__note"><strong>रील स्टार</strong> ही ५ ते १० वर्षे वयोगटातील मुलांसाठीची
-              वैयक्तिक ऑनलाइन स्पर्धा आहे. तिची पात्रता इयत्तेनुसार नाही — विद्यार्थ्याचे <strong>वय</strong>
-              (विभाग १ मधील क्षेत्र) ५ ते १० वर्षे असणे आवश्यक आहे. सबमिशनची अंतिम तारीख
-              रविवार, २९ नोव्हेंबर २०२६ आहे; रीलचा कालावधी, सबमिशन पद्धत व मूल्यमापनाचे निकष
-              आयोजकांकडून जाहीर केले जातील.</p>
+              <p class="selection__note"><strong>रील स्टार</strong> ही इयत्ता ५ वी ते १० वीच्या
+              विद्यार्थ्यांसाठीची वैयक्तिक ऑनलाइन स्पर्धा आहे — पात्रता इयत्तेनुसार आहे आणि या स्पर्धेत
+              स्वतंत्र गट किंवा विषय नाहीत. सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे;
+              रीलचा कालावधी, सबमिशन पद्धत व मूल्यमापनाचे निकष आयोजकांकडून जाहीर केले जातील.</p>
               <div class="selection__list" id="onlineList"></div>
             </div>
 
@@ -188,7 +179,7 @@
             <p class="check__declaration">
               वरील माहिती मी स्वतः तपासून अचूक भरली आहे आणि निवडलेल्या स्पर्धांसाठी
               माझा/माझ्या पाल्याचा सहभाग निश्चित आहे, याची मी खात्री देतो/देते. संघ स्पर्धांसाठी संघाचे नाव व
-              किमान ५ सहभागींची माहिती देणे, रील स्टारसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असल्याची खात्री
+              किमान ५ सहभागींची माहिती देणे, रील स्टारसाठी इयत्ता ५ वी ते १० वीची पात्रता असल्याची खात्री
               देणे, तसेच व्हिडिओ पाठविण्याच्या सूचनांचे पालन करणे आवश्यक आहे, हे मी समजून घेतले आहे.
             </p>
 
@@ -230,7 +221,7 @@
 
 <footer id="siteFooter"></footer>
 
-<script src="data.js?v3"></script>
-<script src="site.js?v3"></script>
+<script src="data.js?v4"></script>
+<script src="site.js?v4"></script>
 </body>
 </html>

@@ -89,29 +89,21 @@
   }
 
   function isEligible(c, standardIndex) {
-    if (!c.eligibility) return true;            // unconfirmed / age-based events: never blocked by class
+    if (!c.eligibility) return true;            // unconfirmed events: never blocked by class
     return standardIndex >= c.eligibility.from && standardIndex <= c.eligibility.to;
   }
 
-  /* रील स्टार is age-based (५ ते १० वर्षे), not class-based: class selection
-     can never block it, the age field in the registration form does. */
-  function isAgeBased(c) {
-    return !!c && c.eligibilityType === 'age' && !!c.ageEligibility;
-  }
-
-  /* Everything a card / page needs to say about eligibility, in one place. */
+  /* Every competition is class-based: eligibility is an index range into
+     `standards`. रील स्टार is a single range (इयत्ता ५ वी ते १० वी) with no
+     separate groups, so its pages and cards show the range and no group list. */
   function eligibilityText(c) {
-    if (isAgeBased(c)) return 'वय ' + c.ageEligibility.label + ' (वयोगट)';
     if (c.eligibility) return rangeText(c.eligibility.from, c.eligibility.to);
     return 'निश्चित होणे बाकी';
   }
 
-  function isAgeEligible(c, age) {
-    if (!isAgeBased(c)) return true;
-    if (age === null || age === undefined || age === '') return false;
-    var n = Number(age);
-    if (!isFinite(n)) return false;
-    return n >= c.ageEligibility.min && n <= c.ageEligibility.max;
+  /* true when a competition has no separate groups (e.g. रील स्टार) */
+  function hasGroups(c) {
+    return !!(c && c.groups && c.groups.length);
   }
 
   /* "व्हिडिओ पाठविण्याची अंतिम तारीख" for the team events, the competition's
@@ -122,7 +114,7 @@
 
   function eligibleFor(standardIndex) {
     return C.filter(function (c) {
-      if (isAgeBased(c) || !c.eligibility) return true;   // age-checked in the form, not by class
+      if (!c.eligibility) return true;
       return isEligible(c, standardIndex);
     });
   }
@@ -255,12 +247,6 @@
       '<symbol id="i-whatsapp" viewBox="0 0 24 24">' +
         '<path d="M12.04 2.6a9.3 9.3 0 0 0-7.9 14.2L2.8 21.4l4.7-1.3a9.3 9.3 0 1 0 4.54-17.5Z"/>' +
         '<path d="M8.6 7.9c.2-.5.5-.5.8-.5.3 0 .5 0 .7.5l.7 1.6c.1.3.1.4-.1.7l-.5.6c-.2.2-.1.4 0 .6a7 7 0 0 0 3.2 2.8c.3.1.5.1.6-.1l.6-.7c.2-.2.4-.2.6-.1l1.6.8c.4.2.5.4.4.7-.2 1.3-1.5 2-2.6 1.9a9.5 9.5 0 0 1-7.1-6.2c-.3-1 .2-2 .8-2.4Z"/>' +
-      '</symbol>' +
-
-      '<symbol id="i-age" viewBox="0 0 24 24">' +
-        '<circle cx="12" cy="7.4" r="3.2"/>' +
-        '<path d="M6 20.4c0-3.3 2.7-6 6-6s6 2.7 6 6"/>' +
-        '<path d="M17.6 4.6h4M19.6 2.6v4"/>' +
       '</symbol>' +
 
       '<symbol id="i-users" viewBox="0 0 24 24">' +
@@ -553,12 +539,12 @@
         '</h3>' +
         '<p class="ccard__desc">' + escapeHtml(c.blurb) + '</p>' +
         '<span class="ccard__meta">' +
-          (isAgeBased(c)
-            ? 'पात्रता: ' + escapeHtml(eligibilityText(c)) + ' · ऑनलाइन स्पर्धा'
-            : (c.eligibility
-              ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) + ' · ' +
-                toMarathi(c.groups.length) + ' गट' + (c.isTeam ? ' · संघ स्पर्धा' : '')
-              : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>')) +
+          (c.eligibility
+            ? 'पात्रता: ' + escapeHtml(eligibilityText(c)) +
+              (hasGroups(c) ? ' · ' + toMarathi(c.groups.length) + ' गट' : '') +
+              (c.isTeam ? ' · संघ स्पर्धा' : '') +
+              (c.mode === 'online' ? ' · ऑनलाइन स्पर्धा' : '')
+            : 'पात्रता: ' + '<span class="ccard__pending">निश्चित होणे बाकी</span>') +
         '</span>' +
         (c.schedule ? '<span class="ccard__date">' + icon('#i-cal') +
           (c.schedule.kind === 'online'
@@ -579,16 +565,17 @@
     var host = qs('#eligibilityList');
     if (!host) return;
 
-    host.innerHTML = C.filter(function (c) { return c.eligibility || isAgeBased(c); }).map(function (c) {
-      var chips = isAgeBased(c)
-        ? '<li class="chip chip--soft">' + icon('#i-age') + ' ' +
-            escapeHtml(c.ageEligibility.label) + ' (' + escapeHtml(UI.ageEligibilityLabel) + ')</li>' +
-          '<li class="chip chip--soft">' + icon('#i-online') + ' ऑनलाइन स्पर्धा — ' +
-            escapeHtml(shortDate(c.schedule.date)) + '</li>'
-        : c.groups.map(function (g, gi) {
+    host.innerHTML = C.filter(function (c) { return c.eligibility; }).map(function (c) {
+      var chips = hasGroups(c)
+        ? c.groups.map(function (g, gi) {
             return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
               escapeHtml(stripGroupPrefix(g.label)) + '</li>';
-          }).join('');
+          }).join('')
+        : '<li class="chip chip--soft">' + icon('#i-info') + ' स्वतंत्र गट नाहीत</li>' +
+          (c.schedule && c.mode === 'online'
+            ? '<li class="chip chip--soft">' + icon('#i-online') + ' ' +
+              escapeHtml(onlineDeadlineLabel(c)) + ' — ' + escapeHtml(shortDate(c.schedule.date)) + '</li>'
+            : '');
       return '' +
         '<article class="erow reveal" data-accent="' + c.accent + '">' +
           '<div class="erow__head">' +
@@ -622,8 +609,8 @@
 
     select.addEventListener('change', function () {
       if (select.value === '') {
-        empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
-        if (hint) hint.textContent = 'इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.';
+        empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.');
+        if (hint) hint.textContent = 'इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.';
         return;
       }
       var index = Number(select.value);
@@ -670,21 +657,19 @@
           ')</p><ul class="ex-list">' + onlineItems + '</ul></div>';
     });
 
-    empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा आणि गट दिसतील.');
+    empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.');
   }
 
   function renderOnlineStrip() {
     var host = qs('#onlineStrip');
     if (!host) return;
     var items = onlineCompetitions().map(function (c) {
-      /* team events list their duration + minimum participants; वय-आधारित
-         events (रील स्टार) list their age group instead — no invented rules. */
+      /* team events list their duration + minimum participants; individual
+         events (रील स्टार) list their class range — no invented rules. */
       var note = c.isTeam && c.duration
         ? 'ऑनलाइन व्हिडिओ सादरीकरण · ' + escapeHtml(c.duration) +
           ' · किमान ' + toMarathi(c.teamMin) + ' सहभागी'
-        : 'ऑनलाइन स्पर्धा' + (isAgeBased(c)
-            ? ' · ' + escapeHtml(UI.ageEligibilityLabel) + ': ' + escapeHtml(c.ageEligibility.label)
-            : '');
+        : 'ऑनलाइन स्पर्धा · पात्रता: ' + escapeHtml(eligibilityText(c));
       return '<a class="online-card reveal" href="' + c.page + '" data-accent="' + c.accent + '">' +
         '<span class="online-card__icon">' + icon(c.icon) + '</span>' +
         '<span class="online-card__body">' +
@@ -1164,19 +1149,12 @@
 
     /* --- facts ------------------------------------------------------------ */
     var facts = [];
-    var ageBased = isAgeBased(c);
-    facts.push(fact(ageBased ? (UI.ageEligibilityLabel || 'वयोगट') : 'पात्रता',
-      ageBased ? c.ageEligibility.label : eligibilityText(c)));
-    if (ageBased) {
-      /* age eligibility is not a class range and has no groups — say so plainly */
-      facts.push(fact('गट', 'नाही (वयोगटानुसार पात्रता)'));
-    } else if (!c.groups.length) {
-      facts.push(fact('गट', 'निश्चित होणे बाकी'));
-    }
+    facts.push(fact('पात्रता', eligibilityText(c)));
+    facts.push(fact('गट', hasGroups(c) ? toMarathi(c.groups.length) + ' (इयत्तेनुसार)' : 'स्वतंत्र गट नाहीत'));
     if (isTeam) {
       facts.push(fact('कालावधी', c.duration));
       facts.push(fact('किमान सहभागी', toMarathi(c.teamMin)));
-    } else if (c.groups.length) {
+    } else if (hasGroups(c)) {
       facts.push(fact('एकूण विषय', toMarathi(topicCount(c))));
     }
     facts.push(fact('स्वरूप', isOnline ? 'ऑनलाइन स्पर्धा' : 'स्पर्धा'));
@@ -1213,29 +1191,23 @@
 
     /* --- eligibility ------------------------------------------------------- */
     var eligHtml = '';
-    if (ageBased) {
-      var age = c.ageEligibility;
-      eligHtml =
-        '<section class="cp-block" id="eligibility-detail">' +
-          '<h2 class="cp-block__title">पात्रता</h2>' +
-          '<p class="cp-block__lead">ही स्पर्धा <strong>वय ' + escapeHtml(age.label) +
-            '</strong> असलेल्या मुलांसाठी खुली आहे. ही पात्रता <strong>वयानुसार</strong> आहे — ' +
-            'इयत्ता किंवा वर्ग यावर आधारित नाही. वयाची खात्री नोंदणी फॉर्ममध्ये ' +
-            'विद्यार्थ्याचे वय (वर्षे) भरून केली जाते.' +
-          '</p>' +
-          (age.note ? '<p class="cp-note">' + icon('#i-info') + '<span>' + escapeHtml(age.note) + '</span></p>' : '') +
-        '</section>';
-    } else if (c.eligibility) {
+    if (c.eligibility) {
+      var eligDetail = isTeam
+        ? 'सहभागींचे वर्गीकरण खालील चार गटांत केले जाईल. ' + escapeHtml(c.eligibilityNote || '')
+        : hasGroups(c)
+          ? 'नोंदणी करताना विद्यार्थ्याची इयत्ता निवडल्यानंतर योग्य गट आपोआप निश्चित होतो.'
+          : 'या स्पर्धेत स्वतंत्र गट नाहीत — पात्र इयत्तांच्या सर्व विद्यार्थ्यांसाठी एकच स्पर्धा आहे. ' +
+            'नोंदणी करताना इयत्ता निवडल्यावर या श्रेणीतील असल्यास स्पर्धा उपलब्ध होते.';
       eligHtml =
         '<section class="cp-block" id="eligibility-detail">' +
           '<h2 class="cp-block__title">पात्रता</h2>' +
           '<p class="cp-block__lead">ही स्पर्धा <strong>' +
             escapeHtml(rangeText(c.eligibility.from, c.eligibility.to)) +
-          '</strong> मधील विद्यार्थ्यांसाठी खुली आहे. ' +
-          (isTeam
-            ? 'सहभागींचे वर्गीकरण खालील चार गटांत केले जाईल. ' + escapeHtml(c.eligibilityNote || '')
-            : 'नोंदणी करताना विद्यार्थ्याची इयत्ता निवडल्यानंतर योग्य गट आपोआप निश्चित होतो.') +
+          '</strong> मधील विद्यार्थ्यांसाठी खुली आहे. ' + eligDetail +
           '</p>' +
+          (!isTeam && !hasGroups(c) && c.eligibilityNote
+            ? '<p class="cp-note">' + icon('#i-info') + '<span>' + escapeHtml(c.eligibilityNote) + '</span></p>'
+            : '') +
         '</section>';
     }
 
@@ -1272,21 +1244,21 @@
     }
 
     /* --- how to register (process, not competition rules) ------------------ */
-    var steps = ageBased
-      ? ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती, इयत्ता व वय (वर्षे) भरा.',
-         'ऑनलाइन स्पर्धांमधून रील स्टार निवडा.',
-         'फॉर्म विद्यार्थ्याचे वय ' + c.ageEligibility.label + ' असल्याची खात्री करतो.',
-         'माहिती तपासून नोंदणी पाठवा. व्हिडिओ सबमिशनची तांत्रिक सूचना आयोजकांकडून जाहीर होतील.']
-      : isTeam
+    var steps = isTeam
       ? ['नोंदणी पृष्ठावर आपली माहिती व इयत्ता भरा.',
          'संघ स्पर्धांमधून ही स्पर्धा निवडा — आपला गट इयत्तेनुसार आपोआप निश्चित होईल.',
          'संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) +
            ' सहभागी विद्यार्थ्यांची नावे आणि इयत्ता भरा.',
          'माहिती तपासून नोंदणी पाठवा.']
-      : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
+      : hasGroups(c)
+      ? ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
          'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
          'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.',
-         'माहिती तपासून नोंदणी पाठवा.'];
+         'माहिती तपासून नोंदणी पाठवा.']
+      : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
+         'इयत्तेनुसार उपलब्ध ऑनलाइन स्पर्धांमधून ही स्पर्धा निवडा.',
+         'या स्पर्धेत विषय किंवा स्वतंत्र गट नाहीत — फक्त नोंदणी करायची आहे.',
+         'माहिती तपासून नोंदणी पाठवा. व्हिडिओ सबमिशनची तांत्रिक सूचना आयोजकांकडून जाहीर होतील.'];
 
     var processHtml =
       '<section class="cp-block">' +
@@ -1302,9 +1274,7 @@
         '<p class="cp-note">' + icon('#i-info') + '<span>' +
           (isTeam
             ? 'व्हिडिओ पाठविण्याची अंतिम तारीख व तांत्रिक सूचना आयोजकांकडून जाहीर करण्यात येतील.'
-            : ageBased
-              ? 'व्हिडिओचा कालावधी, सबमिशनची पद्धत व मूल्यमापन निकष आयोजकांकडून जाहीर केले जातील.'
-              : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
+            : 'स्पर्धेचे अंतिम नियम, वेळापत्रक व इतर सूचना आयोजकांमार्फत जाहीर केल्या जातील.') +
         '</span></p>') +
       '</section>';
 
@@ -1439,9 +1409,9 @@
           '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
           '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
             (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
-              : ageBased ? '; ' + escapeHtml(c.name) + ' साठी विद्यार्थ्याचे वय ' +
-                  escapeHtml(c.ageEligibility.label) + ' असणे आवश्यक आहे — वयाची नोंद करणे विसरू नका.'
-              : ' आणि आपला गट आपोआप निश्चित होईल.') + '</p>' +
+              : hasGroups(c) ? ' आणि आपला गट आपोआप निश्चित होईल.'
+              : '; ' + escapeHtml(c.name) + ' साठी ' + escapeHtml(eligibilityText(c)) +
+                ' च्या विद्यार्थ्यांना नोंदणी करता येईल.') + '</p>' +
           '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
             escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
         '</div>' +
@@ -1476,12 +1446,6 @@
       });
     }
 
-    var ageInput = qs('#age');
-    if (ageInput) {
-      ageInput.addEventListener('input', function () {
-        ageInput.value = ageInput.value.replace(/\D/g, '').slice(0, 2);
-      });
-    }
 
     /* Which competition sent us here? */
     var params = new URLSearchParams(window.location.search);
@@ -1617,25 +1581,7 @@
 
     var bodyInner = '';
 
-    if (isAgeBased(c)) {
-      /* वय-आधारित ऑनलाइन स्पर्धा (रील स्टार): no group, no topic — the age field
-         in section १ does the eligibility check. */
-      bodyInner =
-        '<span class="comp-pick__group">' + icon('#i-age') +
-          escapeHtml(UI.ageEligibilityLabel || 'वयोगट') + ': ' + escapeHtml(c.ageEligibility.label) +
-          ' — ' + escapeHtml(UI.ageHint || '') +
-        '</span>' +
-        '<span class="comp-pick__group">' + icon('#i-online') +
-          'ऑनलाइन स्पर्धा · ' + escapeHtml(onlineDeadlineLabel(c)) + ': ' +
-          escapeHtml(c.schedule ? c.schedule.date : '') +
-        '</span>' +
-        '<span class="comp-pick__group">' + icon('#i-info') +
-          'नोंदणी करण्यापूर्वी विद्यार्थ्याचे वय (वर्षे) विभाग १ मध्ये भरा.' +
-        '</span>' +
-        (c.notes && c.notes.length
-          ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
-          : '');
-    } else if (isTeam) {
+    if (isTeam) {
       bodyInner =
         '<span class="comp-pick__group">' + icon('#i-check') +
           'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
@@ -1687,11 +1633,26 @@
           '</span>' +
           '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>' +
         '</label>';
-    } else {
+    } else if (hasGroups(c)) {
       bodyInner =
         '<span class="comp-pick__group">' + icon('#i-check') +
           'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
         '</span>';
+    } else {
+      /* individual competition without groups (रील स्टार): no group, no topic */
+      bodyInner =
+        '<span class="comp-pick__group">' + icon('#i-check') +
+          'पात्रता: ' + escapeHtml(eligibilityText(c)) + ' — स्वतंत्र गट किंवा विषय नाही.' +
+        '</span>' +
+        (c.schedule
+          ? '<span class="comp-pick__group">' + icon('#i-online') +
+              'ऑनलाइन स्पर्धा · ' + escapeHtml(onlineDeadlineLabel(c)) + ': ' +
+              escapeHtml(c.schedule.date) +
+            '</span>'
+          : '') +
+        (c.notes && c.notes.length
+          ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
+          : '');
     }
 
     return '' +
@@ -1704,11 +1665,9 @@
               '<span class="comp-pick__name">' + escapeHtml(c.name) +
                 (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') + '</span>' +
               '<span class="comp-pick__elig">' +
-                (isAgeBased(c)
+                (c.eligibility
                   ? 'पात्रता: ' + escapeHtml(eligibilityText(c))
-                  : c.eligibility
-                    ? 'पात्रता: ' + escapeHtml(rangeText(c.eligibility.from, c.eligibility.to))
-                    : 'पात्रता: निश्चित होणे बाकी') +
+                  : 'पात्रता: निश्चित होणे बाकी') +
                 (c.mode === 'online' ? ' · ऑनलाइन' : '') +
                 (isTeam ? ' · संघ स्पर्धा' : '') +
               '</span>' +
@@ -1796,16 +1755,19 @@
     var group = qs('#onlineGroup');
     if (!list) return;
     pickState = capturePickState();
-    /* Every online competition — team events (class groups) and वय-आधारित
-       individual events such as रील स्टार — lives in this section. Before a
-       class is chosen only the class-independent (age-based) ones can be
-       listed, so रील स्टार stays selectable straight from its page CTA. */
+    /* Every online competition — the three team events and the individual
+       रील स्टार — lives in this section and follows the same class rule. */
     var online = (standardIndex == null)
-      ? C.filter(function (c) { return c.mode === 'online' && (isAgeBased(c) || !c.eligibility); })
+      ? []
       : eligibleFor(standardIndex).filter(function (c) { return c.mode === 'online'; });
-    pickState = pickState || {};
-    if (group) group.hidden = online.length === 0;
-    list.innerHTML = online.map(function (c) { return pickCard(c, standardIndex); }).join('');
+    /* The section (and its explanation of the four online events) stays visible;
+       only the pick cards wait for a class, because eligibility is grade-based. */
+    if (group) group.hidden = false;
+    list.innerHTML = (standardIndex == null)
+      ? '<p class="selection__note">आपली इयत्ता निवडल्यानंतर पात्र ऑनलाइन स्पर्धा येथे दिसतील.</p>'
+      : (online.length
+        ? online.map(function (c) { return pickCard(c, standardIndex); }).join('')
+        : '<p class="selection__note">या इयत्तेसाठी सध्या कोणतीही ऑनलाइन स्पर्धा उपलब्ध नाही.</p>');
     bindPicks(list);
   }
 
@@ -1817,10 +1779,8 @@
     box.hidden = false;
     box.innerHTML = icon('#i-check') +
       '<span><strong>' + escapeHtml(c.name) + '</strong> या स्पर्धेसाठी तुम्ही नोंदणी पृष्ठावर आला आहात. ' +
-      (c.eligibility
-        ? 'कृपया आपली इयत्ता निवडा — ही स्पर्धा आपोआप निवडली जाईल.'
-        : 'ही ऑनलाइन स्पर्धा खाली आपोआप निवडलेली आहे.') +
-      '</span>';
+      'कृपया आपली इयत्ता निवडा — ' + escapeHtml(eligibilityText(c)) +
+      ' पात्र असल्यास ही स्पर्धा आपोआप निवडली जाईल.</span>';
   }
 
   function applyPreselect(standardIndex) {
@@ -1828,11 +1788,8 @@
     var c = byId(preselectId);
     if (!c) return;
 
-    /* Age-based / unconfirmed online event: the class never blocks it, so it is
-       selected right away — रील स्टार's age check happens on submit. */
-    if (!c.eligibility) { checkPreselect(c, null); return; }
-
-    /* Class-based event: wait until the participant has picked a standard. */
+    /* Eligibility is grade-based for every competition (रील स्टार included),
+       so nothing is preselected until the participant picks a standard. */
     if (standardIndex == null) return;
 
     if (!isEligible(c, standardIndex)) {
@@ -1864,9 +1821,7 @@
         (group
           ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
             (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.')
-          : isAgeBased(c)
-            ? 'पात्रता: <strong>वय ' + escapeHtml(c.ageEligibility.label) + '</strong> — कृपया विभाग १ मध्ये विद्यार्थ्याचे वय (वर्षे) भरा.'
-            : 'या ऑनलाइन स्पर्धेची पात्रता व नियम निश्चित होणे बाकी आहेत.') +
+          : 'पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong> — या स्पर्धेत स्वतंत्र गट किंवा विषय नाहीत.') +
         '</span>';
     }
   }
@@ -1911,31 +1866,6 @@
 
     var emailValue = email.value.trim();
     if (emailValue && !EMAIL_RE.test(emailValue)) errors.push(setFieldError(email, 'कृपया वैध ईमेल पत्ता भरा.'));
-
-    /* वय (age) — only needed for वय-आधारित competitions such as रील स्टार. The
-       class-based competitions keep their existing behaviour untouched. */
-    var ageInput = qs('#age', form);
-    var ageBasedPicked = selection.some(function (entry) {
-      var c = byId(entry.id);
-      return isAgeBased(c);
-    });
-    if (ageInput) {
-      var ageRaw = ageInput.value.replace(/\D/g, '');
-      if (ageBasedPicked) {
-        var ageRule = byId(selection.filter(function (e) {
-          return isAgeBased(byId(e.id));
-        })[0].id).ageEligibility;
-        if (!ageRaw) {
-          errors.push(setFieldError(ageInput, UI.ageMissing || 'कृपया विद्यार्थ्याचे वय (वर्षे) भरा.'));
-        } else if (!isAgeEligible({ eligibilityType: 'age', ageEligibility: ageRule }, ageRaw)) {
-          errors.push(setFieldError(ageInput,
-            (UI.ageInvalid || 'रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे.') +
-            ' (भरलेले वय: ' + toMarathi(ageRaw) + ')'));
-        }
-      } else if (ageRaw && (Number(ageRaw) < 1 || Number(ageRaw) > 18)) {
-        errors.push(setFieldError(ageInput, 'कृपया योग्य वय (वर्षे) भरा.'));
-      }
-    }
 
     if (!selection.length) errors.push(setError(qs('#err-competitions'), 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.'));
 
@@ -2069,15 +1999,12 @@
   var submitting = false;      // blocks double submits / accidental re-posts
   function buildPayload(form) {
     var standardIndex = Number(qs('#standard', form).value);
-    var ageField = qs('#age', form);
-    var ageValue = ageField ? ageField.value.replace(/\D/g, '') : '';
     return {
       formType: 'balasanskar-festival-2026',
       requestId: requestId(),
       submittedAt: new Date().toISOString(),
       studentName: qs('#studentName', form).value.trim(),
       standard: standardLabel(standardIndex),
-      age: ageValue ? Number(ageValue) : '',
       schoolName: qs('#schoolName', form).value.trim(),
       city: qs('#city', form).value.trim(),
       guardianName: qs('#guardianName', form).value.trim(),
@@ -2092,19 +2019,11 @@
           mode: c ? c.mode : 'offline',
           group: group ? groupDisplay(c, group) : '',
           topic: entry.topic || '',
-          /* Only a competition whose eligibility/rules are genuinely still
-             unannounced is "pending". रील स्टार's age rule IS confirmed, so an
-             age-eligible entry is a normal registration. */
-          status: (c && !isAgeBased(c) && (!c.eligibility || (c.pending && !c.groups.length)))
-            ? 'pending-confirmation'
-            : 'registered'
+          /* Only a competition whose eligibility is genuinely still unannounced
+             is "pending". रील स्टार's grade range IS confirmed, so an eligible
+             entry is a normal registration. */
+          status: (c && !c.eligibility) ? 'pending-confirmation' : 'registered'
         };
-        if (c && isAgeBased(c)) {
-          reg.eligibilityType = 'age';
-          reg.age = ageValue ? Number(ageValue) : '';
-          reg.ageRange = c.ageEligibility.label;
-          reg.deadline = c.schedule ? c.schedule.date : '';
-        }
         if (c && c.isTeam) {
           var groupEl = qs('#groupname-' + entry.id);
           var membersEl = qs('#members-' + entry.id);
@@ -2209,7 +2128,6 @@
 
     var hasPending = payload.registrations.some(function (r) { return r.status === 'pending-confirmation'; });
     var hasTeam = payload.registrations.some(function (r) { return !!r.team; });
-    var hasAge = payload.registrations.some(function (r) { return r.eligibilityType === 'age'; });
 
     if (summary) {
       var rows = [
@@ -2219,7 +2137,6 @@
         ['गाव / शहर', payload.city],
         ['मोबाइल क्रमांक', payload.mobile]
       ];
-      if (payload.age) rows.push([UI.ageLabel || 'वय (वर्षे)', toMarathi(payload.age)]);
       if (payload.email) rows.push(['ईमेल', payload.email]);
       if (response && response.reference) rows.push(['नोंदणी क्रमांक', response.reference]);
 
@@ -2251,10 +2168,6 @@
       if (hasTeam) {
         noteParts.push('संघ स्पर्धांचे नियम निश्चित आहेत. व्हिडिओ पाठविण्याच्या तांत्रिक सूचना ' +
           'आयोजकांकडून जाहीर करण्यात येतील; संघ स्पर्धांची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे.');
-      }
-      if (hasAge) {
-        noteParts.push('रील स्टारसाठी व्हिडिओ सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे; ' +
-          'सबमिशन व मूल्यमापनाच्या तांत्रिक सूचना आयोजकांकडून जाहीर केल्या जातील.');
       }
       pendingNote.hidden = noteParts.length === 0;
       pendingNote.innerHTML = icon('#i-info') + '<span>' + noteParts.join(' ') + '</span>';

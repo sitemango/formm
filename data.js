@@ -12,20 +12,18 @@
    accent           : saffron | green | maroon | gold | red | teal | plum | indigo | bronze
    layout           : classic | typography | music | editorial   (page personality)
    mode             : "offline" (on-ground) | "online"
-   eligibility      : { from: <index in standards>, to: <index> }  — null = class-based
-                      eligibility is not applicable / not fixed
-   eligibilityType  : "class" (default) | "age"
-   ageEligibility   : { min, max, label, note }  — used when eligibilityType is "age"
-                      (रील स्टार: वय ५ ते १० वर्षे, इयत्ता ५ ते १० नाही)
-   groups           : [{ label, from, to, note?, topics: [...] }]  — [] when not yet fixed
+   eligibility      : { from: <index in standards>, to: <index> }  — null = अद्याप निश्चित नाही
+                      रील स्टार: { from: 5, to: 10 } = इयत्ता ५ वी ते १० वी
+   groups           : [{ label, from, to, note?, topics: [...] }]  — [] when a competition
+                      has no separate groups (e.g. रील स्टार: one grade range, no topics)
    isTeam           : true for the online team events (group name + members)
    pending          : true → the transparent "details not yet announced" notice is shown
    rules            : only fill in what the organisers have actually confirmed
 
-   The three team competitions intentionally keep class-based groups; रील स्टार
-   is age-based and deliberately has no groups and no class range. Fill in the
-   remaining rules when the organisers confirm them — the pages and the
-   registration form pick the new values up automatically.
+   The three team competitions keep class-based groups; रील स्टार is a single
+   grade range (इयत्ता ५ वी ते १० वी) with no separate groups and no topics.
+   Fill in the remaining rules when the organisers confirm them — the pages and
+   the registration form pick the new values up automatically.
 
    CAROUSEL IMAGE MANIFEST
    -----------------------
@@ -800,16 +798,13 @@ window.FESTIVAL = {
         "venue": null,
         "deadlineLabel": "व्हिडिओ सबमिशनची अंतिम तारीख"
       },
-      "blurb": "५ ते १० वर्षे वयोगटातील मुलांसाठीची ऑनलाइन रील स्पर्धा.",
-      "intro": "रील स्टार (Reel Star) ही ५ ते १० वर्षे वयोगटातील मुलांसाठीची ऑनलाइन स्पर्धा आहे. सादरीकरण व सबमिशन पूर्णपणे ऑनलाइन होईल; प्रत्यक्ष स्थळ किंवा प्रत्यक्ष स्पर्धेची वेळ लागू नाही. सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे.",
-      "eligibility": null,
-      "eligibilityType": "age",
-      "ageEligibility": {
-        "min": 5,
-        "max": 10,
-        "label": "५ ते १० वर्षे",
-        "note": "वय ५ ते १० वर्षे — इयत्तेनुसार नाही, वयोगटानुसार पात्रता."
+      "blurb": "इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांसाठीची ऑनलाइन रील स्पर्धा.",
+      "intro": "रील स्टार (Reel Star) ही इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांसाठीची ऑनलाइन स्पर्धा आहे. सादरीकरण व सबमिशन पूर्णपणे ऑनलाइन होईल; प्रत्यक्ष स्थळ किंवा प्रत्यक्ष स्पर्धेची वेळ लागू नाही. सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे.",
+      "eligibility": {
+        "from": 5,
+        "to": 10
       },
+      "eligibilityNote": "इयत्ता ५ वी ते १० वी — एकच इयत्ता-श्रेणी, स्वतंत्र गट नाहीत.",
       "groups": [],
       "isTeam": false,
       "teamMin": null,
@@ -837,11 +832,11 @@ window.FESTIVAL = {
     },
     {
       "q": "ऑनलाइन स्पर्धांसाठी काय करावे लागेल?",
-      "a": "समूह नृत्य, समूह गायन, समूह फॅशन शो आणि रील स्टार या चार स्पर्धा ऑनलाइन आहेत. समूह स्पर्धांमध्ये प्रत्येक संघात किमान ५ सहभागी असतात, सादरीकरण ३ ते ५ मिनिटांच्या व्हिडिओ स्वरूपात असते आणि व्हिडिओ पाठविण्याची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे; नोंदणीच्या वेळी संघाचे नाव व सर्व सहभागींची नावे व इयत्ता भरावी लागतात. रील स्टार ही ५ ते १० वर्षे वयोगटातील मुलांसाठीची वैयक्तिक ऑनलाइन स्पर्धा आहे — तिची पात्रता इयत्तेनुसार नाही, वयानुसार आहे, आणि व्हिडिओ सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे."
+      "a": "समूह नृत्य, समूह गायन, समूह फॅशन शो आणि रील स्टार या चार स्पर्धा ऑनलाइन आहेत. समूह स्पर्धांमध्ये प्रत्येक संघात किमान ५ सहभागी असतात, सादरीकरण ३ ते ५ मिनिटांच्या व्हिडिओ स्वरूपात असते आणि व्हिडिओ पाठविण्याची अंतिम तारीख शुक्रवार, २७ नोव्हेंबर २०२६ आहे; नोंदणीच्या वेळी संघाचे नाव व सर्व सहभागींची नावे व इयत्ता भरावी लागतात. रील स्टार ही इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांसाठीची वैयक्तिक ऑनलाइन स्पर्धा आहे — तिची पात्रता इयत्तेनुसार आहे, आणि व्हिडिओ सबमिशनची अंतिम तारीख रविवार, २९ नोव्हेंबर २०२६ आहे."
     },
     {
       "q": "रील स्टारसाठी पात्रता कशी ठरते?",
-      "a": "रील स्टारसाठी पात्रता वयानुसार आहे — मुलाचे वय ५ ते १० वर्षे असणे आवश्यक आहे. ही इयत्ता ५ वी ते १० वी अशी इयत्तेनुसार असलेली अट नाही. नोंदणी फॉर्ममध्ये विद्यार्थ्याचे वय (वर्षे) भरून पात्रता तपासली जाते; वय ५ ते १० वर्षांच्या बाहेर असल्यास नोंदणी पाठवली जात नाही."
+      "a": "रील स्टारसाठी पात्रता इयत्तेनुसार आहे — इयत्ता ५ वी ते १० वीचे विद्यार्थी या स्पर्धेत सहभागी होऊ शकतात. नोंदणी फॉर्ममध्ये इयत्ता निवडल्यावर ही स्पर्धा पात्र असल्यास आपोआप उपलब्ध होते; इयत्ता ५ वी ते १० वीच्या बाहेर असल्यास ती दिसत नाही."
     },
     {
       "q": "स्पर्धेची तारीख, वेळ आणि ठिकाण कसे कळेल?",
@@ -878,13 +873,8 @@ window.FESTIVAL = {
     "galleryPrev": "मागील छायाचित्र",
     "galleryNext": "पुढील छायाचित्र",
     "galleryDot": "छायाचित्र",
-    "ageLabel": "वय (वर्षे)",
-    "ageHint": "रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे.",
-    "ageMissing": "कृपया विद्यार्थ्याचे वय (वर्षे) भरा.",
-    "ageInvalid": "रील स्टार स्पर्धेसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे.",
-    "ageEligibilityLabel": "वयोगट",
     "onlineSectionTitle": "ऑनलाइन स्पर्धा",
-    "onlineSectionNote": "खालील ऑनलाइन स्पर्धांसाठी सादरीकरण ऑनलाइन पद्धतीने होईल. संघ स्पर्धांसाठी संघाचे नाव व किमान ५ सहभागींची माहिती भरावी लागेल; रील स्टारसाठी विद्यार्थ्याचे वय ५ ते १० वर्षे असणे आवश्यक आहे.",
+    "onlineSectionNote": "खालील ऑनलाइन स्पर्धांसाठी सादरीकरण ऑनलाइन पद्धतीने होईल. संघ स्पर्धांसाठी संघाचे नाव व किमान ५ सहभागींची माहिती भरावी लागेल; रील स्टारसाठी इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांना नोंदणी करता येईल.",
     "whatsappGroup": "WhatsApp ग्रुप",
     "whatsappNote": "स्पर्धांच्या सूचना व नोंदणीसंबंधी माहिती WhatsApp ग्रुपमध्ये मिळेल."
   },
