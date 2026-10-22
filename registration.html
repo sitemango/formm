@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v7" />
+<link rel="stylesheet" href="style.css?v8" />
 </head>
 
 <body data-page="registration">
@@ -47,11 +47,6 @@
     </header>
 
     <div class="register-card">
-      <p class="config-note" id="configNote" hidden>
-        <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
-        <span>सूचना: नोंदणी माहिती पाठवण्यासाठी Google Apps Script endpoint अद्याप जोडलेला नाही. तो जोडेपर्यंत फॉर्म पाठवला जात नाही.</span>
-      </p>
-
       <form class="form" id="registrationForm" novalidate>
         <fieldset class="form__block">
           <legend class="form__legend"><span class="form__legend-num">१</span> विद्यार्थ्याची माहिती</legend>
@@ -210,6 +205,10 @@
           <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span></span>
         </p>
+        <!-- Filled by site.js with the WhatsApp group button from data.js, so the
+             invitation link still lives in exactly one place. -->
+        <div class="success__wa" id="successWhatsapp" hidden></div>
+
         <div class="success__actions">
           <button class="btn btn--outline" type="button" id="newRegistrationBtn">दुसरी नोंदणी करा</button>
           <a class="btn btn--ghost" href="index.html">मुख्यपृष्ठाकडे जा</a>
@@ -221,7 +220,7 @@
 
 <footer id="siteFooter"></footer>
 
-<script src="data.js?v7"></script>
-<script src="site.js?v7"></script>
+<script src="data.js?v8"></script>
+<script src="site.js?v8"></script>
 </body>
 </html>

@@ -677,6 +677,34 @@ assert(!codeGs.includes('AGE_COMPETITIONS'), 'Backend carries no age validation'
 assert(!codeGs.includes('वय (वर्षे)'), 'Backend sheet has no age column');
 
 /* ---- 9e. WhatsApp ---- */
+/* the endpoint notice is gone, but a missing endpoint must still never fake a send */
+assert(!regHtml.includes('configNote'), 'registration.html no longer shows the endpoint notice');
+assert(!regHtml.includes('endpoint अद्याप जोडलेला नाही'), 'The endpoint notice text is gone from the page');
+assert(!siteJs.includes('#configNote'), 'site.js no longer toggles a config note');
+assert(siteJs.includes("if (!CONFIG.registrationEndpoint)"), 'site.js still refuses to fake a send without an endpoint');
+
+/* ---- 9f. WhatsApp group button after a successful registration ---- */
+assert(regHtml.includes('id="successWhatsapp"'), 'The success card has a WhatsApp button mount');
+assert(/var waHost = qs\('#successWhatsapp'\)/.test(siteJs), 'site.js fills the success-card WhatsApp button');
+assert(siteJs.includes('whatsappButton({ size: \'lg\', cls: \'success__wa-btn\' })'),
+  'The success-card button reuses whatsappButton(), so the URL stays in data.js');
+assert(DATA.ui.successWhatsappNote && DATA.ui.successWhatsappNote.includes('WhatsApp ग्रुपमध्ये'),
+  'The success-card note explains the WhatsApp group');
+assert(styleCss.includes('.success__wa{') && styleCss.includes('.success__wa-note'),
+  'The success-card WhatsApp block is styled');
+
+/* ---- 9g. the terms checkbox tick is really visible, and black ---- */
+assert(!/\.check[^{]*check__input::after/.test(styleCss),
+  'The checkbox no longer draws its tick with an <input>::after (never rendered by browsers)');
+const tickRule = (styleCss.match(/\.check \.check__input:checked,[\s\S]{0,600}?\}/) || [''])[0];
+assert(tickRule.length > 0, 'The checked checkbox has its own rule');
+assert(/background-image:url\("data:image\/svg\+xml/.test(tickRule), 'The tick is an inline SVG background image');
+assert(tickRule.includes("stroke='%23000000'"), 'The tick is black');
+assert(/background-color:#fff/.test(tickRule), 'The checked tile is white so the black tick is readable');
+assert(/background-size:16px 16px/.test(styleCss), 'The tick is sized inside the box');
+assert(/@media \(forced-colors: active\)\{[\s\S]{0,300}appearance:auto/.test(styleCss),
+  'High-contrast mode hands the checkbox back to the system');
+
 const WA_URL = 'https://chat.whatsapp.com/CCTGjn1R4vgLxWYgTySjfq?mode=gi_t';
 assert(DATA.whatsapp && DATA.whatsapp.url === WA_URL, 'data.js holds the exact WhatsApp invitation URL');
 assert(siteJs.includes('data-whatsapp-link'), 'Header/footer WhatsApp buttons are rendered from data.js');
