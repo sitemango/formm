@@ -412,7 +412,11 @@ p{ margin:0 0 1em; }
 
 /* hero */
 .hero{
-  position:relative; overflow:hidden; padding:clamp(44px, 6.5vw, 84px) 0 clamp(70px, 9vw, 110px);
+  position:relative; overflow:hidden;
+  /* More breathing room above the festival name: the title sits under a 74px
+     sticky header, so the top padding is deliberately generous (72–132px) and
+     grows with the viewport. The bottom padding is unchanged. */
+  padding:clamp(72px, 9vw, 132px) 0 clamp(70px, 9vw, 110px);
   background:
     radial-gradient(1100px 560px at 84% 10%, #FFF1D6 0%, rgba(255,241,214,0) 60%),
     radial-gradient(820px 480px at 6% 92%, #FBE6D6 0%, rgba(251,230,214,0) 62%),
@@ -472,7 +476,7 @@ p{ margin:0 0 1em; }
 .org-card__phone:hover, .org-card__phone:focus{ color:var(--org-blue-deep); text-decoration:underline; }
 .org-card__phone .icon{ color:currentColor; }
 .hero__eyebrow{
-  display:inline-flex; align-items:center; gap:10px; margin:0 0 16px; font-size:.85rem; font-weight:600;
+  display:inline-flex; align-items:center; gap:10px; margin:0 0 22px; font-size:.85rem; font-weight:600;
   color:var(--maroon); background:rgba(255,255,255,.7); border:1px solid var(--line);
   padding:.4em 1em; border-radius:999px; box-shadow:var(--shadow-sm);
 }

@@ -551,6 +551,15 @@ assert(styleCss.includes('.hero__content{') && styleCss.includes('center'), 'Her
 const titleRule = (styleCss.match(/\.hero__title\{[^}]*margin:0 0 \.3em;[^}]*\}/) || [''])[0];
 assert(/color:\s*var\(--maroon\);/.test(titleRule),
   'Hero title keeps a solid maroon fallback colour');
+/* the festival title needs room at the top of the page */
+const heroRule = (styleCss.match(/\.hero\{[\s\S]*?\n\}/) || [''])[0];
+const heroPad = (heroRule.match(/padding:clamp\((\d+)px[^)]*?\) 0/) || [])[1];
+assert(heroRule.length > 0 && heroPad, 'The hero declares a responsive top padding');
+assert(Number(heroPad) >= 64, `Hero top padding gives the title room under the 74px header (${heroPad}px)`);
+const eyebrowRule = (styleCss.match(/\.hero__eyebrow\{[\s\S]*?\n\}/) || [''])[0];
+assert(/margin:0 0 (2[0-9]|[3-9][0-9])px/.test(eyebrowRule),
+  'The organiser pill leaves extra space above the festival title');
+
 const gradientRule = (styleCss.match(/background-image:linear-gradient\(95deg,[^)]+\)/) || [''])[0];
 const stops = ['#C2185B', '#1E4E9A', '#6A1B9A', '#9C4300', '#C1272D', '#7A1F2B'];
 assert(gradientRule.length > 0, 'Hero title uses a linear-gradient');

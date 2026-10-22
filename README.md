@@ -634,6 +634,14 @@ the glyphs, so the words themselves carry the colours (no image, no extra markup
 * The saffron bar under the title (`.hero__title::after`) is unchanged, and no other heading
   on the site was touched.
 
+**Spacing above the title.** The homepage hero sits under a 74 px sticky header, so its top
+padding is deliberately generous and responsive:
+`padding:clamp(72px, 9vw, 132px) 0 clamp(70px, 9vw, 110px)` — at least 72 px of air above the
+organiser pill on a phone and up to 132 px on a wide screen (it was 44–84 px). The organiser
+pill also carries `margin-bottom: 22px` (was 16 px) so the festival name is never crowded from
+above. Only the homepage hero changed; the bottom padding, `h1` size and every other section
+are untouched.
+
 | Role | Family | Weights |
 | --- | --- | --- |
 | Marathi body + headings | Noto Sans Devanagari | 400 / 500 / 600 / 700 |
@@ -663,8 +671,8 @@ network access, no build step.
 
 ```bash
 npm install            # one dependency: jsdom (dev only)
-npm test               # both suites           → 525 + 114 assertions
-npm run test:verify    # source-level suite    → 525 assertions
+npm test               # both suites           → 528 + 114 assertions
+npm run test:verify    # source-level suite    → 528 assertions
 npm run test:runtime   # jsdom runtime suite    → 114 assertions
 ```
 
@@ -709,12 +717,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v8`, `data.js?v8` and `site.js?v8`. Browsers
+Every page loads its assets as `style.css?v9`, `data.js?v9` and `site.js?v9`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v8/?v9/g' *.html
+sed -i 's/?v9/?v10/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.
