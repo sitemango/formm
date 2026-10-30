@@ -599,7 +599,24 @@ member list, no member count) — column 18 always records **नोंदणी 
   says how many were removed.
 * Each competition page links to `registration.html?competition=<id>`, which pre-selects
   that competition as soon as a class is chosen, with an honest message if that class is
-  not eligible.
+  not eligible or if registration for that competition has closed.
+* **Certificate of Participation (`सहभाग प्रमाणपत्र`):** Every participating student in any
+  competition receives a Certificate of Participation regardless of winning or losing
+  (“प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (Certificate of Participation) देण्यात येईल.”),
+  announced across the homepage, all competition pages, the registration form, FAQ and
+  shared footer.
+* **Per-competition registration deadline (`नोंदणीची अंतिम तारीख`):** Each competition with a
+  confirmed event date (`schedule.competitionDateISO`) closes registration one calendar day
+  before its actual event date at **11:59 PM IST (`Asia/Kolkata`)**. Online competitions
+  whose published dates are video-submission deadlines keep `competitionDateISO: null` so
+  registration deadlines are never derived from video-submission deadlines. Closed
+  competitions are blocked in both the frontend UI and `Code.gs`.
+* **Balwadi random subject allotment (`विषयाचे यादृच्छिक वाटप`):** When **बालवाडी** is
+  selected, manual subject selection is removed and one subject is randomly allotted with
+  equal 1/4 probability from that competition's 4 existing Balwadi topics once per
+  registration entry, with authoritative server-side random assignment and allowed-topic
+  validation in `Code.gs` (stored in the `विषय` column). Class 1 (`इयत्ता १ ली`) onwards
+  keeps manual subject selection unchanged.
 * Team entries require the **संघाचे नाव (Group Name)** and at least five participants.
 * Marathi inline errors, an error summary, focus management, a terms checkbox and a हमीपत्र
   confirmation.
@@ -717,12 +734,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v9`, `data.js?v9` and `site.js?v9`. Browsers
+Every page loads its assets as `style.css?v10`, `data.js?v10` and `site.js?v10`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v9/?v10/g' *.html
+sed -i 's/?v10/?v11/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

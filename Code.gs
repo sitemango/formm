@@ -17,7 +17,9 @@
       then paste the /exec URL into CONFIG.registrationEndpoint in site.js.
 
    Nothing secret lives here: the deployment URL is public by design, which is
-   why every field is validated on this side before a row is written.
+   why every field, per-competition registration deadline (Asia/Kolkata), and
+   Balwadi random subject allotment is enforced on this side before a row is
+   written.
    ========================================================================== */
 
 /* ------------------------------------------------------------------ settings */
@@ -41,10 +43,38 @@ var TABS = {
   'reel-star':         'रील स्टार'
 };
 
+/* Actual competition event dates (YYYY-MM-DD in Asia/Kolkata), synchronised
+   with schedule.competitionDateISO in data.js.
+   Registration for each competition closes one calendar day before its actual
+   event date at 11:59 PM IST (23:59:59.999+05:30).
+   Online competitions whose published dates are video-submission deadlines and
+   have no separate confirmed competition date keep null here — never derive a
+   registration deadline from a video-submission deadline or invent dates. */
+var COMPETITION_DATES_ISO = {
+  'chitrakala':         '2026-11-22',
+  'mehndi':             '2026-11-23',
+  'nibandh':            '2026-11-27',
+  'vaktrutva':          '2026-11-28',
+  'ekpatri':            '2026-11-28',
+  'rangoli':            '2026-11-29',
+  'group-dance':        null,
+  'group-singing':      null,
+  'group-fashion-show': null,
+  'reel-star':          null
+};
+
 /* Competitions whose entries carry a group name and a participant list. */
 var TEAM_COMPETITIONS = ['group-dance', 'group-singing', 'group-fashion-show'];
 
 var MIN_TEAM_MEMBERS = 5;
+
+/* Balwadi random subject allotment (विषयाचे यादृच्छिक वाटप), synchronised with
+   data.js. Only individual subject-based competitions eligible for Balwadi
+   appear here, and each must define exactly 4 existing topics. */
+var BALWADI_STANDARD = 'बालवाडी';
+var BALWADI_TOPICS = {
+  'chitrakala': ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे']
+};
 
 /* One header row for every tab — identical structure everywhere. */
 var HEADERS = [
@@ -71,6 +101,13 @@ var HEADERS = [
 var MAX_TEXT = 600;      // guards against junk payloads
 var MOBILE_RE = /^[6-9]\d{9}$/;
 
+var MARATHI_DIGITS_ = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+var MARATHI_WEEKDAYS_ = ['रविवार', 'सोमवार', 'मंगळवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+var MARATHI_MONTHS_ = [
+  'जानेवारी', 'फेब्रुवारी', 'मार्च', 'एप्रिल', 'मे', 'जून',
+  'जुलै', 'ऑगस्ट', 'सप्टेंबर', 'ऑक्टोबर', 'नोव्हेंबर', 'डिसेंबर'
+];
+
 /* ------------------------------------------------------------------- web app */
 
 function doPost(e) {
@@ -80,10 +117,11 @@ function doPost(e) {
     lock.waitLock(25000);          // concurrent submissions queue up safely
     locked = true;
 
+    var now = currentNow_();
     var payload = parsePayload_(e);
     if (!payload) return out_({ result: 'error', message: 'विनंती वाचता आली नाही. कृपया पुन्हा प्रयत्न करा.' });
 
-    var problem = validate_(payload);
+    var problem = validate_(payload, now);
     if (problem) return out_({ result: 'error', message: problem });
 
     if (SPREADSHEET_ID === 'PUT_YOUR_SPREADSHEET_ID_HERE' || !SPREADSHEET_ID) {
@@ -92,16 +130,30 @@ function doPost(e) {
 
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var saved = [];
-    var stamp = Utilities.formatDate(new Date(), TIME_ZONE, 'dd/MM/yyyy HH:mm:ss');
+    var allottedTopics = {};
+    var stamp = formatStampIST_(now);
 
     for (var i = 0; i < payload.registrations.length; i++) {
       var reg = payload.registrations[i];
-      var tabName = TABS[reg.competitionId] || tabFromName_(reg.competition);
+      var compId = resolveCompetitionId_(reg);
+      var tabName = (compId && TABS[compId]) || tabFromName_(reg.competition);
       if (!tabName) continue;                      // unknown competition → skip, never guess
+      if (compId && isRegistrationClosed_(compId, now)) continue; // never write after deadline
+
       var sheet = getOrCreateSheet_(ss, tabName);
       var reference = (payload.requestId || 'BSF26') + '-' + (i + 1);
 
       if (referenceExists_(sheet, reference)) continue;   // duplicate delivery
+
+      /* Authoritative server-side random subject allotment for Balwadi:
+         prevents a participant from choosing or manipulating the submitted topic. */
+      var finalTopic = reg.topic;
+      if (isBalwadi_(payload.standard) && compId && TEAM_COMPETITIONS.indexOf(compId) === -1) {
+        var allotted = allotBalwadiTopic_(compId);
+        if (!allotted) continue;
+        finalTopic = allotted;
+        allottedTopics[compId] = finalTopic;
+      }
 
       sheet.appendRow([
         stamp,
@@ -114,16 +166,22 @@ function doPost(e) {
         payload.mobile,
         payload.email,
         reg.competition,
-        reg.competitionId,
+        compId || reg.competitionId,
         reg.mode === 'online' ? 'ऑनलाइन' : 'प्रत्यक्ष',
         reg.group,
-        reg.topic,
+        finalTopic,
         reg.team ? reg.team.groupName : '',
         reg.team ? reg.team.members.join(' | ') : '',
         reg.team ? reg.team.members.length : '',
         reg.status === 'pending-confirmation' ? 'पुष्टी बाकी' : 'नोंदणी झाली'
       ]);
-      saved.push({ competition: reg.competition, tab: tabName, reference: reference });
+      saved.push({
+        competitionId: compId || reg.competitionId,
+        competition: reg.competition,
+        tab: tabName,
+        reference: reference,
+        topic: finalTopic
+      });
     }
 
     if (!saved.length) {
@@ -134,7 +192,9 @@ function doPost(e) {
       result: 'success',
       reference: saved[0].reference,
       saved: saved.length,
-      tabs: saved.map(function (s) { return s.tab; })
+      tabs: saved.map(function (s) { return s.tab; }),
+      allottedTopics: allottedTopics,
+      registrations: saved
     });
   } catch (err) {
     /* Report the problem without leaking the script internals. */
@@ -146,6 +206,107 @@ function doPost(e) {
 
 function doGet() {
   return out_({ result: 'error', message: 'हा endpoint फक्त नोंदणीसाठी आहे.' });
+}
+
+/* ------------------------------------------- deadlines & Balwadi allotment */
+
+function currentNow_() {
+  if (typeof __TEST_NOW !== 'undefined' && __TEST_NOW) return new Date(__TEST_NOW);
+  return new Date();
+}
+
+function formatStampIST_(now) {
+  if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.formatDate === 'function') {
+    return Utilities.formatDate(now, TIME_ZONE, 'dd/MM/yyyy HH:mm:ss');
+  }
+  var ist = new Date(now.getTime() + (5 * 60 + 30) * 60 * 1000);
+  var pad = function (n) { return ('0' + n).slice(-2); };
+  return pad(ist.getUTCDate()) + '/' + pad(ist.getUTCMonth() + 1) + '/' + ist.getUTCFullYear() + ' ' +
+    pad(ist.getUTCHours()) + ':' + pad(ist.getUTCMinutes()) + ':' + pad(ist.getUTCSeconds());
+}
+
+/* Subtract exactly one calendar day from a YYYY-MM-DD date string. */
+function previousDayISO_(dateISO) {
+  if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return null;
+  var parts = dateISO.split('-');
+  var d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) - 1));
+  var y = d.getUTCFullYear();
+  var m = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+  var day = ('0' + d.getUTCDate()).slice(-2);
+  return y + '-' + m + '-' + day;
+}
+
+/* Individual registration deadline date (YYYY-MM-DD in Asia/Kolkata):
+   one calendar day before the competition's actual event date. */
+function registrationDeadlineISO_(compId) {
+  if (!compId || !Object.prototype.hasOwnProperty.call(COMPETITION_DATES_ISO, compId)) return null;
+  var eventDate = COMPETITION_DATES_ISO[compId];
+  if (!eventDate) return null;
+  return previousDayISO_(eventDate);
+}
+
+/* Exact cutoff instant: 23:59:59.999 IST (11:59 PM IST, end of previous day). */
+function registrationDeadlineCutoffMs_(compId) {
+  var deadlineISO = registrationDeadlineISO_(compId);
+  if (!deadlineISO) return null;
+  return Date.parse(deadlineISO + 'T23:59:59.999+05:30');
+}
+
+function currentDateIST_(nowOpt) {
+  var now = nowOpt instanceof Date ? nowOpt : (nowOpt ? new Date(nowOpt) : currentNow_());
+  if (typeof Utilities !== 'undefined' && Utilities && typeof Utilities.formatDate === 'function') {
+    return Utilities.formatDate(now, TIME_ZONE, 'yyyy-MM-dd');
+  }
+  var ist = new Date(now.getTime() + (5 * 60 + 30) * 60 * 1000);
+  var y = ist.getUTCFullYear();
+  var m = ('0' + (ist.getUTCMonth() + 1)).slice(-2);
+  var d = ('0' + ist.getUTCDate()).slice(-2);
+  return y + '-' + m + '-' + d;
+}
+
+function isRegistrationClosed_(compId, nowOpt) {
+  var deadlineISO = registrationDeadlineISO_(compId);
+  if (!deadlineISO) return false;
+  var now = nowOpt instanceof Date ? nowOpt : (nowOpt ? new Date(nowOpt) : currentNow_());
+  var dateIST = currentDateIST_(now);
+  if (dateIST !== deadlineISO) {
+    return dateIST > deadlineISO;
+  }
+  var cutoff = registrationDeadlineCutoffMs_(compId);
+  return cutoff !== null && !isNaN(cutoff) ? now.getTime() > cutoff : false;
+}
+
+function toMarathiDigits_(value) {
+  return String(value).replace(/\d/g, function (d) { return MARATHI_DIGITS_[Number(d)]; });
+}
+
+function formatDateMarathi_(dateISO) {
+  if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return '';
+  var parts = dateISO.split('-');
+  var y = Number(parts[0]);
+  var m = Number(parts[1]) - 1;
+  var day = Number(parts[2]);
+  var d = new Date(Date.UTC(y, m, day));
+  return MARATHI_WEEKDAYS_[d.getUTCDay()] + ', ' +
+    toMarathiDigits_(day) + ' ' + MARATHI_MONTHS_[m] + ' ' + toMarathiDigits_(y);
+}
+
+function isBalwadi_(standard) {
+  return String(standard || '').trim() === BALWADI_STANDARD;
+}
+
+function balwadiTopicsFor_(compId) {
+  if (!compId || !Object.prototype.hasOwnProperty.call(BALWADI_TOPICS, compId)) return null;
+  return BALWADI_TOPICS[compId];
+}
+
+/* Uniformly allot 1 of the 4 allowed Balwadi topics on the server. */
+function allotBalwadiTopic_(compId) {
+  var allowed = balwadiTopicsFor_(compId);
+  if (!Array.isArray(allowed) || allowed.length !== 4) return null;
+  var idx = Math.floor(Math.random() * allowed.length);
+  var chosen = allowed[idx];
+  return allowed.indexOf(chosen) !== -1 ? chosen : null;
 }
 
 /* ---------------------------------------------------------------- validation */
@@ -193,7 +354,7 @@ function parsePayload_(e) {
   return clean;
 }
 
-function validate_(p) {
+function validate_(p, nowOpt) {
   if (!p.studentName || p.studentName.length < 3) return 'कृपया विद्यार्थ्याचे पूर्ण नाव भरा.';
   if (!p.standard) return 'कृपया इयत्ता निवडा.';
   if (!p.schoolName || p.schoolName.length < 2) return 'कृपया शाळेचे नाव भरा.';
@@ -203,18 +364,40 @@ function validate_(p) {
   if (p.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(p.email)) return 'कृपया वैध ईमेल पत्ता भरा.';
   if (!p.registrations.length) return 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.';
 
+  var now = nowOpt instanceof Date ? nowOpt : (nowOpt ? new Date(nowOpt) : currentNow_());
   var known = 0;
   for (var i = 0; i < p.registrations.length; i++) {
     var reg = p.registrations[i];
-    var tab = TABS[reg.competitionId] || tabFromName_(reg.competition);
-    if (!tab) continue;
+    var compId = resolveCompetitionId_(reg);
+    var tab = (compId && TABS[compId]) || tabFromName_(reg.competition);
+    if (!tab || !compId) continue;
     known++;
-    if (TEAM_COMPETITIONS.indexOf(reg.competitionId) !== -1) {
+
+    /* Per-competition registration deadline enforcement (Asia/Kolkata). */
+    if (isRegistrationClosed_(compId, now)) {
+      var dISO = registrationDeadlineISO_(compId);
+      return (reg.competition || tab) +
+        ' या स्पर्धेसाठी नोंदणी बंद झाली आहे (नोंदणीची अंतिम तारीख: ' +
+        formatDateMarathi_(dISO) + ', रात्री ११:५९ वाजेपर्यंत).';
+    }
+
+    if (TEAM_COMPETITIONS.indexOf(compId) !== -1) {
       if (!reg.team || !reg.team.groupName || reg.team.groupName.length < 2) {
         return 'कृपया संघ स्पर्धांसाठी संघाचे नाव (Group Name) भरा.';
       }
       if (!reg.team.members.length || reg.team.members.length < MIN_TEAM_MEMBERS) {
         return 'कृपया किमान ५ सहभागी विद्यार्थ्यांची नावे व इयत्ता भरा.';
+      }
+    } else if (isBalwadi_(p.standard)) {
+      /* Balwadi individual competitions must have 4 allowed topics, and any
+         client-submitted topic must belong to that allowed list. */
+      var allowed = balwadiTopicsFor_(compId);
+      if (!Array.isArray(allowed) || allowed.length !== 4) {
+        return (reg.competition || tab) +
+          ' या बालवाडी स्पर्धेसाठी नेमके ४ विषय उपलब्ध नाहीत. कृपया आयोजकांशी संपर्क करा.';
+      }
+      if (reg.topic && allowed.indexOf(reg.topic) === -1) {
+        return (reg.competition || tab) + ' या स्पर्धेसाठी अवैध विषय पाठवला गेला आहे.';
       }
     }
   }
@@ -225,6 +408,17 @@ function validate_(p) {
 function text_(value, max) {
   var limit = max || MAX_TEXT;
   return String(value == null ? '' : value).replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, limit);
+}
+
+function resolveCompetitionId_(reg) {
+  if (!reg) return null;
+  if (reg.competitionId && TABS[reg.competitionId]) return reg.competitionId;
+  var name = String(reg.competition || '');
+  var keys = Object.keys(TABS);
+  for (var i = 0; i < keys.length; i++) {
+    if (name.indexOf(TABS[keys[i]]) === 0) return keys[i];
+  }
+  return null;
 }
 
 function tabFromName_(name) {
@@ -296,6 +490,8 @@ function out_(obj) {
 
 /* Local sanity check — run testValidation() in the editor to see it work. */
 function testValidation() {
+  var openNow = new Date('2026-11-15T10:00:00+05:30');
+  var closedChitrakalaNow = new Date('2026-11-22T00:00:01+05:30');
   var sample = {
     requestId: 'BSF26-test-1',
     studentName: 'रोहन अमोल शिंदे',
@@ -307,7 +503,7 @@ function testValidation() {
     email: '',
     registrations: [
       { competitionId: 'chitrakala', competition: 'चित्रकला स्पर्धा', mode: 'offline',
-        group: 'गट ३ — इयत्ता ५ वी ते ७ वी', topic: 'कृष्ण', status: 'registered' },
+        group: 'गट ३ — इयत्ता ५ वी ते ७ वी', topic: 'माझे प्रदूषणमुक्त शिरवळ गाव', status: 'registered' },
       { competitionId: 'reel-star', competition: 'रील स्टार', mode: 'online',
         group: '', topic: '', status: 'registered' },
       { competitionId: 'group-dance', competition: 'समूह नृत्य', mode: 'online',
@@ -318,11 +514,13 @@ function testValidation() {
                           'प्रथमेश पाटील — इयत्ता ६ वी'] } }
     ]
   };
-  Logger.log('valid payload → ' + (validate_(sample) || 'OK'));
+  Logger.log('valid payload (open) → ' + (validate_(sample, openNow) || 'OK'));
+  Logger.log('closed chitrakala → ' + (validate_(sample, closedChitrakalaNow) || 'OK (unexpected)'));
   var broken = JSON.parse(JSON.stringify(sample));
-  broken.registrations[1].team.members = broken.registrations[1].team.members.slice(0, 3);
-  Logger.log('team with 3 members → ' + (validate_(broken) || 'OK (unexpected)'));
+  broken.registrations[2].team.members = broken.registrations[2].team.members.slice(0, 3);
+  Logger.log('team with 3 members → ' + (validate_(broken, openNow) || 'OK (unexpected)'));
   var noComp = JSON.parse(JSON.stringify(sample));
   noComp.registrations = [];
-  Logger.log('no competition → ' + (validate_(noComp) || 'OK (unexpected)'));
+  Logger.log('no competition → ' + (validate_(noComp, openNow) || 'OK (unexpected)'));
+  Logger.log('balwadi random allotment → ' + allotBalwadiTopic_('chitrakala'));
 }

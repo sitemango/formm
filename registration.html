@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v9" />
+<link rel="stylesheet" href="style.css?v10" />
 </head>
 
 <body data-page="registration">
@@ -43,8 +43,17 @@
       <p class="section-head__kicker">नोंदणी</p>
       <h1 class="section-head__title" style="font-size:clamp(1.7rem,4.2vw,2.5rem)">स्पर्धेसाठी नोंदणी करा</h1>
       <span class="ornament" aria-hidden="true"></span>
-      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा आणि त्यांचे विषय दिसतील. रील स्टार इयत्ता ५ वी ते १० वीच्या विद्यार्थ्यांसाठी आहे.</p>
+      <p class="section-head__lede">खालील माहिती अचूक भरा. आपली इयत्ता निवडल्यानंतर ज्यांची नोंदणी सुरू आहे अशा उपलब्ध स्पर्धा दिसतील. प्रत्येक प्रत्यक्ष स्पर्धेसाठी नोंदणीची अंतिम तारीख त्या स्पर्धेच्या आदल्या दिवशी रात्री ११:५९ वाजेपर्यंत आहे. बालवाडीच्या विद्यार्थ्यांसाठी विषयाचे यादृच्छिक वाटप केले जाते.</p>
     </header>
+
+    <div class="cert-callout cert-callout--reg" data-certificate-notice>
+      <span class="cert-callout__icon"><svg class="icon" aria-hidden="true"><use href="#i-cert"/></svg></span>
+      <div class="cert-callout__body">
+        <span class="cert-callout__kicker">सहभाग प्रमाणपत्र</span>
+        <p class="cert-callout__title">प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (<span class="english-text">Certificate of Participation</span>) देण्यात येईल.</p>
+        <p class="cert-callout__sub">स्पर्धेत जय किंवा पराजय काहीही असो, कोणत्याही स्पर्धेत सहभागी होणाऱ्या प्रत्येक विद्यार्थ्याला सहभाग प्रमाणपत्र प्रदान करण्यात येईल.</p>
+      </div>
+    </div>
 
     <div class="register-card">
       <form class="form" id="registrationForm" novalidate>
@@ -120,8 +129,7 @@
 
             <div class="selection__group" id="offlineGroup" hidden>
               <h4 class="selection__title">वैयक्तिक स्पर्धा</h4>
-              <p class="selection__note">खालील स्पर्धांसाठी आपला गट इयत्तेनुसार आपोआप निश्चित होतो व
-              त्या गटाचे विषय दिसतील.</p>
+              <p class="selection__note">खालील स्पर्धांसाठी आपला गट इयत्तेनुसार आपोआप निश्चित होतो. इयत्ता १ ली ते १० वीसाठी आवडीचा विषय निवडा; बालवाडीसाठी चार उपलब्ध विषयांमधून एका विषयाचे यादृच्छिक वाटप आपोआप होते. प्रत्येक प्रत्यक्ष स्पर्धेची नोंदणी आदल्या दिवशी रात्री ११:५९ वाजेपर्यंत सुरू राहते.</p>
               <div class="selection__list" id="offlineList"></div>
             </div>
 
@@ -191,8 +199,7 @@
 
         <p class="form__note">
           <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
-          <span>प्रत्येक स्पर्धेची तारीख, वेळ व ठिकाण त्या स्पर्धेच्या पृष्ठावर दिले आहे. नोंदणी शुल्क,
-          पुरस्कार आणि इतर तपशील आयोजकांमार्फत स्वतंत्रपणे जाहीर केले जातील.</span>
+          <span>प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (<span class="english-text">Certificate of Participation</span>) देण्यात येईल. प्रत्येक स्पर्धेची तारीख, वेळ, ठिकाण आणि नोंदणीची अंतिम तारीख त्या स्पर्धेच्या पृष्ठावर दिली आहे. नोंदणी शुल्क, विजेत्यांचे पुरस्कार आणि इतर तपशील आयोजकांमार्फत स्वतंत्रपणे जाहीर केले जातील.</span>
         </p>
       </form>
 
@@ -201,6 +208,13 @@
         <h2 class="success__title">नोंदणी यशस्वी!</h2>
         <p class="success__text">आपली नोंदणी आम्हाला प्राप्त झाली आहे. पुढील माहिती आयोजकांमार्फत दिलेल्या संपर्क क्रमांकावर कळवली जाईल.</p>
         <div class="success__summary" id="successSummary"></div>
+        <div class="cert-callout cert-callout--compact" data-certificate-notice>
+          <span class="cert-callout__icon"><svg class="icon" aria-hidden="true"><use href="#i-cert"/></svg></span>
+          <div class="cert-callout__body">
+            <span class="cert-callout__kicker">सहभाग प्रमाणपत्र</span>
+            <p class="cert-callout__title">प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (<span class="english-text">Certificate of Participation</span>) देण्यात येईल.</p>
+          </div>
+        </div>
         <p class="config-note" id="successPendingNote" hidden>
           <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
           <span></span>
@@ -220,7 +234,7 @@
 
 <footer id="siteFooter"></footer>
 
-<script src="data.js?v9"></script>
-<script src="site.js?v9"></script>
+<script src="data.js?v10"></script>
+<script src="site.js?v10"></script>
 </body>
 </html>

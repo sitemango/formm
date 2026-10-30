@@ -460,6 +460,590 @@ function stubFetch(win, response) {
   }
 
   /* =======================================================================
+     4. CERTIFICATE OF PARTICIPATION ACROSS PAGES
+     ===================================================================== */
+  console.log('\n[4/7] Certificate of Participation notices across pages...');
+  {
+    const { dom, document } = await boot('index.html');
+    const heroCert = document.querySelector('.cert-callout--hero');
+    check(!!heroCert && /प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(heroCert)),
+      'Homepage hero displays Certificate of Participation notice');
+    check(/सहभाग प्रमाणपत्र/.test(text(document.querySelector('.hero__chips'))),
+      'Homepage hero chips highlight Certificate of Participation');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.querySelector('.cta-band'))),
+      'Homepage CTA band displays Certificate of Participation notice');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र मिळेल का/.test(text(document.getElementById('faqList'))),
+      'Homepage FAQ includes dedicated Certificate of Participation Q&A');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.getElementById('siteFooter'))),
+      'Shared footer displays Certificate of Participation notice');
+    dom.window.close();
+  }
+
+  for (const page of [
+    'chitrakala.html', 'mehendi.html', 'nibandh.html', 'vaktrutva.html',
+    'ekpatri-natya.html', 'rangoli.html', 'group-dance.html',
+    'group-singing.html', 'group-fashion-show.html', 'reel-star.html'
+  ]) {
+    const { dom, document, errors } = await boot(page);
+    const certBlock = document.getElementById('certificate');
+    check(!!certBlock && /प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(certBlock)),
+      `${page} renders #certificate block with Certificate of Participation notice`);
+    check(/सहभाग प्रमाणपत्र/.test(text(document.querySelector('.facts'))),
+      `${page} facts list mentions सहभाग प्रमाणपत्र`);
+    check(errors.length === 0, `${page} boots cleanly without script errors`);
+    dom.window.close();
+  }
+
+  {
+    const { dom, document } = await boot('registration.html');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.querySelector('.cert-callout--reg'))),
+      'Registration page header callout announces Certificate of Participation');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.querySelector('.form__note'))),
+      'Registration form footer note announces Certificate of Participation');
+    check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.querySelector('#successCard .cert-callout'))),
+      'Registration confirmation card includes Certificate of Participation notice');
+    dom.window.close();
+  }
+
+  /* =======================================================================
+     5. PER-COMPETITION REGISTRATION DEADLINE (IST) & MULTI-COMPETITION FLOW
+     ===================================================================== */
+  console.log('\n[5/7] Per-competition registration deadlines & multi-competition rules...');
+  {
+    const { dom, window, document } = await boot('index.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-15T10:00:00+05:30';
+    });
+    const H = window.__FESTIVAL_HELPERS;
+    const byId = (id) => window.FESTIVAL.competitions.find(c => c.id === id);
+
+    /* Exact one-day-before calculation for every onsite competition */
+    check(H.registrationDeadlineISO(byId('chitrakala')) === '2026-11-21', 'चित्रकला deadline is 2026-11-21 (one day before 2026-11-22)');
+    check(H.registrationDeadlineISO(byId('mehndi')) === '2026-11-22', 'मेहंदी deadline is 2026-11-22 (one day before 2026-11-23)');
+    check(H.registrationDeadlineISO(byId('nibandh')) === '2026-11-26', 'निबंध deadline is 2026-11-26 (one day before 2026-11-27)');
+    check(H.registrationDeadlineISO(byId('vaktrutva')) === '2026-11-27', 'वक्तृत्व deadline is 2026-11-27 (one day before 2026-11-28)');
+    check(H.registrationDeadlineISO(byId('ekpatri')) === '2026-11-27', 'एकपात्री नाट्य deadline is 2026-11-27 (one day before 2026-11-28)');
+    check(H.registrationDeadlineISO(byId('rangoli')) === '2026-11-28', 'रांगोळी deadline is 2026-11-28 (one day before 2026-11-29)');
+
+    /* Online video-submission deadlines are never treated as event dates */
+    for (const onlineId of ['group-dance', 'group-singing', 'group-fashion-show', 'reel-star']) {
+      check(H.registrationDeadlineISO(byId(onlineId)) === null,
+        `${onlineId} has null registrationDeadlineISO so video submission deadline is untouched`);
+      check(H.isRegistrationClosed(byId(onlineId), '2026-11-27T12:00:00+05:30') === false,
+        `${onlineId} is not closed by registration-deadline logic based on video submission date`);
+    }
+
+    /* Exact 11:59 PM IST (Asia/Kolkata) boundary checks */
+    check(H.isRegistrationClosed(byId('chitrakala'), '2026-11-21T23:59:59+05:30') === false,
+      'चित्रकला remains OPEN at 2026-11-21 23:59:59 IST');
+    check(H.isRegistrationClosed(byId('chitrakala'), '2026-11-21T18:29:59Z') === false,
+      'चित्रकला remains OPEN at UTC equivalent of 2026-11-21 23:59:59 IST');
+    check(H.isRegistrationClosed(byId('chitrakala'), '2026-11-22T00:00:00+05:30') === true,
+      'चित्रकला CLOSES at 2026-11-22 00:00:00 IST (start of competition day)');
+    check(H.isRegistrationClosed(byId('chitrakala'), '2026-11-21T18:30:00Z') === true,
+      'चित्रकला CLOSES at UTC equivalent of 2026-11-22 00:00:00 IST');
+    check(H.isRegistrationClosed(byId('chitrakala'), '2026-11-25T09:00:00+05:30') === true,
+      'चित्रकला remains CLOSED on subsequent dates');
+
+    /* On 2026-11-22, मेहंदी (2026-11-23) is still open until 23:59:59 IST */
+    check(H.isRegistrationClosed(byId('mehndi'), '2026-11-22T23:59:59+05:30') === false,
+      'मेहंदी remains OPEN through 2026-11-22 23:59:59 IST');
+    check(H.isRegistrationClosed(byId('mehndi'), '2026-11-23T00:00:00+05:30') === true,
+      'मेहंदी CLOSES on 2026-11-23 00:00:00 IST');
+
+    /* Homepage cards show नोंदणीची अंतिम तारीख on onsite cards and NOT on online video cards */
+    check(document.querySelectorAll('[data-reg-deadline]').length === 6,
+      'All 6 onsite homepage competition cards display नोंदणीची अंतिम तारीख');
+    check(/नोंदणीची अंतिम तारीख:\s*२१ नोव्हेंबर २०२६/.test(text(document.querySelector('[data-reg-deadline="chitrakala"]'))),
+      'Homepage चित्रकला card displays २१ नोव्हेंबर २०२६ registration deadline');
+    dom.window.close();
+  }
+
+  /* Competition page open vs closed states on 2026-11-22 10:00 IST */
+  {
+    const { dom: closedDom, document: closedDoc } = await boot('chitrakala.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-22T10:00:00+05:30';
+    });
+    check(!!closedDoc.querySelector('[data-competition-closed]'),
+      'Closed competition page (चित्रकला on 22 Nov) shows closed banner');
+    check(closedDoc.querySelectorAll('[data-cta-closed]').length === 2,
+      'Closed competition page disables both primary registration CTAs');
+    closedDom.window.close();
+
+    const { dom: openDom, document: openDoc } = await boot('mehendi.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-22T10:00:00+05:30';
+    });
+    check(openDoc.querySelector('[data-competition-closed]') === null,
+      'Open competition page (मेहंदी on 22 Nov) shows no closed banner');
+    check(openDoc.querySelectorAll('a[href="registration.html?competition=mehndi"]').length === 2,
+      'Open competition page keeps active registration CTAs');
+    openDom.window.close();
+  }
+
+  /* Multi-competition registration when one competition is closed & others are open */
+  {
+    const { dom, window, document } = await boot('registration.html', '?competition=chitrakala', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-22T12:00:00+05:30';
+    });
+    check(/नोंदणी बंद झाली आहे/.test(text(document.getElementById('preselectNote'))),
+      'Visiting ?competition=chitrakala after its deadline displays closed notice');
+
+    fillRegistration(document); // selects इयत्ता ६ वी
+    await new Promise(r => setTimeout(r, 60));
+
+    const chitraBox = document.querySelector('[data-comp-checkbox="chitrakala"]');
+    const mehndiBox = document.querySelector('[data-comp-checkbox="mehndi"]');
+    const nibandhBox = document.querySelector('[data-comp-checkbox="nibandh"]');
+    const reelBox = document.querySelector('[data-comp-checkbox="reel-star"]');
+
+    check(chitraBox && chitraBox.disabled === true && chitraBox.checked === false,
+      'Closed competition (चित्रकला) checkbox is disabled and not preselected');
+    check(!!document.querySelector('[data-pick-closed="chitrakala"]'),
+      'Closed competition card shows नोंदणी बंद झाली आहे message');
+    check(mehndiBox && !mehndiBox.disabled && nibandhBox && !nibandhBox.disabled && reelBox && !reelBox.disabled,
+      'Open competitions (मेहंदी, निबंध, रील स्टार) remain enabled on the same date');
+
+    /* Select multiple open competitions and submit */
+    mehndiBox.click();
+    nibandhBox.click();
+    reelBox.click();
+    await new Promise(r => setTimeout(r, 40));
+
+    const mehndiSel = document.querySelector('[data-topic-select="mehndi"]');
+    mehndiSel.value = mehndiSel.options[1].value;
+    mehndiSel.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    const nibandhSel = document.querySelector('[data-topic-select="nibandh"]');
+    nibandhSel.value = nibandhSel.options[1].value;
+    nibandhSel.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    const calls = stubFetch(window, { result: 'success', reference: 'BSF26-MULTI-OPEN-1' });
+    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 120));
+
+    check(calls.length === 1, 'Multi-competition submission of open competitions succeeds');
+    const sentIds = calls[0].body.registrations.map(r => r.competitionId);
+    check(JSON.stringify(sentIds) === JSON.stringify(['mehndi', 'nibandh', 'reel-star']),
+      'Submitted payload contains only the open selected competitions');
+    check(document.getElementById('successCard').hidden === false,
+      'Confirmation card is shown for open multi-competition registration');
+    dom.window.close();
+  }
+
+  /* Mid-session deadline expiration blocks closed competition at submit time */
+  {
+    const { dom, window, document } = await boot('registration.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-21T23:58:00+05:30';
+    });
+    fillRegistration(document);
+    await new Promise(r => setTimeout(r, 60));
+    const chitraBox = document.querySelector('[data-comp-checkbox="chitrakala"]');
+    chitraBox.click();
+    const sel = document.querySelector('[data-topic-select="chitrakala"]');
+    sel.value = sel.options[1].value;
+    sel.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    /* Clock crosses 11:59:59 PM IST before user clicks submit */
+    window.__FESTIVAL_NOW = '2026-11-22T00:00:05+05:30';
+    const calls = stubFetch(window, { result: 'success', reference: 'BSF26-NEVER' });
+    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 120));
+    check(calls.length === 0, 'Mid-session expired competition is blocked before network send');
+    check(/नोंदणी बंद झाली आहे/.test(text(document.getElementById('formStatus'))),
+      'Mid-session expiration displays clear Marathi closed error');
+    dom.window.close();
+  }
+
+  /* =======================================================================
+     6. BALWADI RANDOM SUBJECT ALLOTMENT & CLASS 1+ MANUAL SELECTION
+     ===================================================================== */
+  console.log('\n[6/7] Balwadi random subject allotment & Class 1+ manual selection...');
+  {
+    const allowedBalwadi = ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे'];
+    const { dom, window, document } = await boot('registration.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-15T10:00:00+05:30';
+    });
+    const H = window.__FESTIVAL_HELPERS;
+    const chitraComp = window.FESTIVAL.competitions.find(c => c.id === 'chitrakala');
+
+    /* Verify uniform 1/4 distribution across 1,200 independent entries */
+    const counts = { 'गणपती': 0, 'कृष्ण': 0, 'कार': 0, 'रंगीत फुलपाखरे': 0 };
+    let allValid = true;
+    for (let i = 0; i < 1200; i++) {
+      H.resetBalwadiAllotments();
+      const t = H.getOrCreateBalwadiTopic(chitraComp);
+      if (!allowedBalwadi.includes(t)) allValid = false;
+      else counts[t]++;
+    }
+    check(allValid, 'All 1,200 Balwadi random allotments pick exclusively from the 4 existing topics');
+    check(allowedBalwadi.every(t => counts[t] >= 210 && counts[t] <= 390),
+      'Balwadi random allotment distributes with equal 1/4 probability across all 4 topics (' +
+      JSON.stringify(counts) + ')');
+
+    /* Reset once and test UI flow for बालवाडी (index 0) */
+    H.resetBalwadiAllotments();
+    document.getElementById('studentName').value = 'स्वरा संदीप कुलकर्णी';
+    document.getElementById('schoolName').value = 'शिरवळ बालवाडी';
+    document.getElementById('city').value = 'शिरवळ';
+    document.getElementById('guardianName').value = 'संदीप कुलकर्णी';
+    document.getElementById('mobile').value = '9822334455';
+    document.getElementById('declaration').checked = true;
+
+    const std = document.getElementById('standard');
+    std.value = '0'; // बालवाडी
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+
+    /* Balwadi hides manual subject dropdown and shows random allotment box */
+    check(document.querySelector('[data-topic-select="chitrakala"]') === null,
+      'Balwadi hides manual subject-selection dropdown');
+    const chitraBox = document.querySelector('[data-comp-checkbox="chitrakala"]');
+    chitraBox.click();
+    await new Promise(r => setTimeout(r, 40));
+
+    const allotCard = document.querySelector('[data-allotted-topic="chitrakala"]');
+    const allotVal = text(document.querySelector('[data-allotted-topic-value="chitrakala"]'));
+    check(!!allotCard && /आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:/.test(text(allotCard)),
+      'Balwadi registration form displays required Marathi allotment prompt');
+    check(/विषयाचे यादृच्छिक वाटप/.test(text(allotCard)),
+      'Balwadi registration form displays विषयाचे यादृच्छिक वाटप badge');
+    check(allowedBalwadi.includes(allotVal),
+      'Balwadi allotted subject is one of the 4 existing Balwadi topics (' + allotVal + ')');
+
+    /* Stability: unchecking and re-checking, or switching class to इयत्ता १ ली and back, keeps same topic */
+    chitraBox.click(); // uncheck
+    chitraBox.click(); // re-check
+    check(text(document.querySelector('[data-allotted-topic-value="chitrakala"]')) === allotVal,
+      'Toggling Balwadi competition checkbox does not regenerate allotted subject');
+
+    /* Switching to इयत्ता १ ली (index 1) restores manual subject selection and does not leak Balwadi topic */
+    std.value = '1'; // इयत्ता १ ली
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    const class1Select = document.querySelector('[data-topic-select="chitrakala"]');
+    check(!!class1Select && class1Select.tagName === 'SELECT',
+      'इयत्ता १ ली shows manual subject-selection dropdown');
+    check(class1Select.value === '',
+      'Balwadi auto-allotted topic never leaks into इयत्ता १ ली manual dropdown');
+    check(document.querySelector('[data-allotted-topic="chitrakala"]') === null,
+      'इयत्ता १ ली does not render Balwadi random allotment card');
+
+    /* Switching back to बालवाडी (index 0) restores random allotment with the same cached topic */
+    std.value = '0';
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+    check(text(document.querySelector('[data-allotted-topic-value="chitrakala"]')) === allotVal,
+      'Returning to बालवाडी within the same registration entry preserves the single allotted topic');
+
+    /* Also add an eligible Balwadi team competition (समूह नृत्य) to verify team + Balwadi coexistence */
+    const danceBox = document.querySelector('[data-comp-checkbox="group-dance"]');
+    danceBox.click();
+    await new Promise(r => setTimeout(r, 40));
+    document.getElementById('groupname-group-dance').value = 'चिमुकले कलाकार';
+    document.getElementById('members-group-dance').value = [
+      'स्वरा कुलकर्णी — बालवाडी',
+      'आरव पाटील — बालवाडी',
+      'काव्या शिंदे — बालवाडी',
+      'विहान मोरे — बालवाडी',
+      'अन्वी कदम — बालवाडी'
+    ].join('\n');
+
+    /* Backend returns authoritative server-allotted topic */
+    const serverTopic = 'रंगीत फुलपाखरे';
+    const calls = stubFetch(window, {
+      result: 'success',
+      reference: 'BSF26-BALWADI-1',
+      allottedTopics: { chitrakala: serverTopic }
+    });
+    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 120));
+
+    check(calls.length === 1, 'Balwadi registration submits cleanly');
+    check(calls[0].body.standard === 'बालवाडी', 'Balwadi payload standard is बालवाडी');
+    const sentChitra = calls[0].body.registrations.find(r => r.competitionId === 'chitrakala');
+    const sentDance = calls[0].body.registrations.find(r => r.competitionId === 'group-dance');
+    check(sentChitra && sentChitra.topic === allotVal, 'Balwadi payload carries allotted topic');
+    check(sentDance && sentDance.team && sentDance.team.members.length === 5,
+      'Balwadi team registration preserves 5-member team structure');
+
+    const summaryText = text(document.getElementById('successSummary'));
+    check(/आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:\s*रंगीत फुलपाखरे/.test(summaryText),
+      'Confirmation screen prominently displays the authoritative server-allotted Balwadi subject');
+    check(!/वय/.test(summaryText), 'Balwadi confirmation summary contains no age wording');
+    dom.window.close();
+  }
+
+  /* Flagging safeguard when a Balwadi competition does not have 4 existing topics */
+  {
+    const { dom, window, document } = await boot('registration.html', '', (w) => {
+      w.__FESTIVAL_NOW = '2026-11-15T10:00:00+05:30';
+    });
+    const chitra = window.FESTIVAL.competitions.find(c => c.id === 'chitrakala');
+    chitra.groups[0].topics = ['गणपती', 'कृष्ण', 'कार']; // simulate 3 topics instead of 4
+
+    fillRegistration(document);
+    const std = document.getElementById('standard');
+    std.value = '0';
+    std.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 60));
+
+    document.querySelector('[data-comp-checkbox="chitrakala"]').click();
+    await new Promise(r => setTimeout(r, 40));
+
+    const flagNode = document.querySelector('[data-balwadi-flag="chitrakala"]');
+    check(!!flagNode && /नेमके ४ विषय निश्चित केलेले नाहीत/.test(text(flagNode)),
+      'Balwadi competition without 4 topics is flagged rather than inventing subjects');
+    const calls = stubFetch(window, { result: 'success', reference: 'NEVER' });
+    document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 100));
+    check(calls.length === 0, 'Flagged Balwadi competition blocks submission until 4 topics exist');
+    dom.window.close();
+  }
+
+  /* =======================================================================
+     7. GOOGLE APPS SCRIPT BACKEND (Code.gs) RUNTIME VERIFICATION
+     ===================================================================== */
+  console.log('\n[7/7] Google Apps Script backend (Code.gs) runtime checks...');
+  {
+    const vm = require('vm');
+    const codeGsSrc = fs.readFileSync(path.join(ROOT, 'Code.gs'), 'utf8');
+
+    function createGasHarness(nowIso) {
+      const sheets = {};
+      const makeSheet = (name) => {
+        const rows = [];
+        return {
+          name,
+          rows,
+          appendRow(r) { rows.push(r.slice()); },
+          getLastRow() { return rows.length; },
+          setFrozenRows() {},
+          getRange(row, col, numRows, numCols) {
+            return {
+              setFontWeight() { return this; },
+              setBackground() { return this; },
+              getValues() {
+                const out = [];
+                for (let r = row - 1; r < row - 1 + numRows; r++) {
+                  const line = [];
+                  for (let c = col - 1; c < col - 1 + (numCols || 1); c++) {
+                    line.push(rows[r] ? rows[r][c] : '');
+                  }
+                  out.push(line);
+                }
+                return out;
+              }
+            };
+          }
+        };
+      };
+
+      const sandbox = {
+        __TEST_NOW: nowIso,
+        SPREADSHEET_ID: 'TEST_SHEET_ID',
+        LockService: {
+          getScriptLock: () => ({ waitLock() {}, releaseLock() {} })
+        },
+        ContentService: {
+          MimeType: { JSON: 'application/json' },
+          createTextOutput(str) {
+            return {
+              _text: str,
+              setMimeType() { return this; },
+              getContent() { return this._text; }
+            };
+          }
+        },
+        Utilities: {
+          formatDate(date, tz, pattern) {
+            const parts = new Intl.DateTimeFormat('en-GB', {
+              timeZone: tz,
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit', second: '2-digit',
+              hour12: false
+            }).formatToParts(date);
+            const m = {};
+            parts.forEach(p => { m[p.type] = p.value; });
+            if (pattern === 'yyyy-MM-dd') return `${m.year}-${m.month}-${m.day}`;
+            return `${m.day}/${m.month}/${m.year} ${m.hour}:${m.minute}:${m.second}`;
+          }
+        },
+        SpreadsheetApp: {
+          openById() {
+            return {
+              getSheetByName(n) { return sheets[n] || null; },
+              insertSheet(n) { sheets[n] = makeSheet(n); return sheets[n]; }
+            };
+          }
+        },
+        Logger: { log() {} }
+      };
+
+      vm.createContext(sandbox);
+      vm.runInContext(codeGsSrc, sandbox);
+      sandbox.SPREADSHEET_ID = 'TEST_SHEET_ID_ACTIVE';
+
+      function post(bodyObj) {
+        const res = sandbox.doPost({ postData: { contents: JSON.stringify(bodyObj) } });
+        return JSON.parse(res.getContent());
+      }
+
+      return { sandbox, sheets, post };
+    }
+
+    const basePayload = (overrides = {}) => Object.assign({
+      requestId: 'BSF26-GAS-1',
+      studentName: 'रोहन अमोल शिंदे',
+      standard: 'इयत्ता ६ वी',
+      schoolName: 'शिरवळ विद्यालय',
+      city: 'शिरवळ',
+      guardianName: 'अमोल शिंदे',
+      mobile: '9822112233',
+      email: 'rohan@example.com',
+      registrations: [
+        {
+          competitionId: 'chitrakala',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट ३ — इयत्ता ५ वी ते ७ वी',
+          topic: 'माझे प्रदूषणमुक्त शिरवळ गाव',
+          status: 'registered'
+        }
+      ]
+    }, overrides);
+
+    /* 7a. Open at 11:59:59 PM IST on previous day */
+    {
+      const gas = createGasHarness('2026-11-21T23:59:59+05:30');
+      const res = gas.post(basePayload({ requestId: 'BSF26-OPEN-2359' }));
+      check(res.result === 'success' && res.saved === 1,
+        'Code.gs accepts चित्रकला registration at 2026-11-21 23:59:59 IST');
+      check(gas.sheets['चित्रकला'] && gas.sheets['चित्रकला'].rows.length === 2,
+        'Code.gs creates header + 1 registration row in चित्रकला sheet');
+      check(gas.sheets['चित्रकला'].rows[1].length === 18,
+        'Code.gs preserves exact 18-column Google Sheets structure');
+
+      /* Advance clock past deadline on the SAME workbook: direct POST to closed चित्रकला is rejected
+         and previously submitted registration row in चित्रकला remains untouched! */
+      gas.sandbox.__TEST_NOW = '2026-11-22T00:00:00+05:30';
+      const closedRes = gas.post(basePayload({ requestId: 'BSF26-CLOSED-0000' }));
+      check(closedRes.result === 'error' && /नोंदणी बंद झाली आहे/.test(closedRes.message),
+        'Code.gs rejects direct POST to चित्रकला at 2026-11-22 00:00:00 IST');
+      check(gas.sheets['चित्रकला'].rows.length === 2,
+        'Previously submitted registration row in Google Sheets remains completely unaffected');
+
+      /* Bypass attempt omitting competitionId and passing only Marathi name is also blocked */
+      const omitIdRes = gas.post(basePayload({
+        requestId: 'BSF26-OMIT-ID',
+        registrations: [{
+          competitionId: '',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट ३ — इयत्ता ५ वी ते ७ वी',
+          topic: 'माझे प्रदूषणमुक्त शिरवळ गाव',
+          status: 'registered'
+        }]
+      }));
+      check(omitIdRes.result === 'error' && /नोंदणी बंद झाली आहे/.test(omitIdRes.message),
+        'Code.gs blocks closed competition even when competitionId is omitted from payload');
+
+      /* Multi-competition submission on 2026-11-22 12:00 IST succeeds for open competitions */
+      gas.sandbox.__TEST_NOW = '2026-11-22T12:00:00+05:30';
+      const multiOpenRes = gas.post(basePayload({
+        requestId: 'BSF26-OPEN-MULTI',
+        registrations: [
+          {
+            competitionId: 'mehndi',
+            competition: 'मेहंदी स्पर्धा',
+            mode: 'offline',
+            group: 'गट २ — इयत्ता ५ वी ते ७ वी',
+            topic: 'पारंपरिक भारतीय मेहंदी',
+            status: 'registered'
+          },
+          {
+            competitionId: 'reel-star',
+            competition: 'रील स्टार',
+            mode: 'online',
+            group: '',
+            topic: '',
+            status: 'registered'
+          }
+        ]
+      }));
+      check(multiOpenRes.result === 'success' && multiOpenRes.saved === 2,
+        'Code.gs accepts multi-competition registration for open competitions (मेहंदी + रील स्टार) on 22 Nov');
+    }
+
+    /* 7b. Backend Balwadi random allotment & manipulation protection */
+    {
+      const gas = createGasHarness('2026-11-15T10:00:00+05:30');
+      const allowed = ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे'];
+
+      /* Reject invalid/tampered Balwadi topic */
+      const tamperedRes = gas.post(basePayload({
+        requestId: 'BSF26-BAL-TAMPER',
+        standard: 'बालवाडी',
+        registrations: [{
+          competitionId: 'chitrakala',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट १ — बालवाडी ते इयत्ता १ ली',
+          topic: 'अवैध फेरफार केलेला विषय',
+          status: 'registered'
+        }]
+      }));
+      check(tamperedRes.result === 'error' && /अवैध विषय/.test(tamperedRes.message),
+        'Code.gs rejects tampered/invalid Balwadi subject');
+
+      /* Authoritative server-side random assignment distributes across all 4 topics
+         even if a client repeatedly tries to submit only "गणपती" */
+      const serverCounts = { 'गणपती': 0, 'कृष्ण': 0, 'कार': 0, 'रंगीत फुलपाखरे': 0 };
+      let serverAllValid = true;
+      for (let i = 0; i < 400; i++) {
+        const picked = gas.sandbox.allotBalwadiTopic_('chitrakala');
+        if (!allowed.includes(picked)) serverAllValid = false;
+        else serverCounts[picked]++;
+      }
+      check(serverAllValid && allowed.every(t => serverCounts[t] >= 60 && serverCounts[t] <= 145),
+        'Code.gs allotBalwadiTopic_ assigns uniformly across all 4 allowed topics (' +
+        JSON.stringify(serverCounts) + ')');
+
+      const balRes = gas.post(basePayload({
+        requestId: 'BSF26-BAL-VALID',
+        standard: 'बालवाडी',
+        registrations: [{
+          competitionId: 'chitrakala',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट १ — बालवाडी ते इयत्ता १ ली',
+          topic: '',
+          status: 'registered'
+        }]
+      }));
+      check(balRes.result === 'success' && balRes.allottedTopics && allowed.includes(balRes.allottedTopics.chitrakala),
+        'Code.gs assigns a valid Balwadi topic on the server and returns it in allottedTopics');
+      const writtenRow = gas.sheets['चित्रकला'].rows[1];
+      check(writtenRow[13] === balRes.allottedTopics.chitrakala,
+        'Code.gs records the final allotted Balwadi subject in Google Sheets column 14 (विषय)');
+
+      /* Duplicate requestId delivery is ignored */
+      const dupRes = gas.post(basePayload({
+        requestId: 'BSF26-BAL-VALID',
+        standard: 'बालवाडी',
+        registrations: [{
+          competitionId: 'chitrakala',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट १ — बालवाडी ते इयत्ता १ ली',
+          topic: '',
+          status: 'registered'
+        }]
+      }));
+      check(dupRes.result === 'error' && gas.sheets['चित्रकला'].rows.length === 2,
+        'Code.gs duplicate protection prevents writing a second row for the same requestId');
+    }
+  }
+
+  /* =======================================================================
      4. RESULT
      ===================================================================== */
   console.log('\n========================================');
