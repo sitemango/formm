@@ -140,6 +140,159 @@
     return String(n).replace(/\d/g, function (d) { return MARATHI_DIGITS[Number(d)]; });
   }
 
+  /* --------------------------------------- deadlines & Balwadi rules (IST) */
+  var TIME_ZONE = 'Asia/Kolkata';
+  var MARATHI_WEEKDAYS = ['रविवार', 'सोमवार', 'मंगळवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+  var MARATHI_MONTHS = [
+    'जानेवारी', 'फेब्रुवारी', 'मार्च', 'एप्रिल', 'मे', 'जून',
+    'जुलै', 'ऑगस्ट', 'सप्टेंबर', 'ऑक्टोबर', 'नोव्हेंबर', 'डिसेंबर'
+  ];
+
+  function nowDate() {
+    if (window.__FESTIVAL_NOW) return new Date(window.__FESTIVAL_NOW);
+    return new Date();
+  }
+
+  /* Actual competition event date (YYYY-MM-DD in Asia/Kolkata).
+     Never fall back to schedule.dateISO when schedule.dateISO is a
+     video-submission deadline rather than an actual competition date. */
+  function competitionDateISO(c) {
+    if (!c) return null;
+    if (c.competitionDateISO) return c.competitionDateISO;
+    if (c.schedule && c.schedule.competitionDateISO) return c.schedule.competitionDateISO;
+    return null;
+  }
+
+  function previousDayISO(dateISO) {
+    if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return null;
+    var parts = dateISO.split('-');
+    var d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) - 1));
+    var y = d.getUTCFullYear();
+    var m = ('0' + (d.getUTCMonth() + 1)).slice(-2);
+    var day = ('0' + d.getUTCDate()).slice(-2);
+    return y + '-' + m + '-' + day;
+  }
+
+  function registrationDeadlineISO(c) {
+    var eventISO = competitionDateISO(c);
+    if (!eventISO) return null;
+    return previousDayISO(eventISO);
+  }
+
+  function registrationDeadlineCutoffMs(c) {
+    var dISO = registrationDeadlineISO(c);
+    if (!dISO) return null;
+    return Date.parse(dISO + 'T23:59:59.999+05:30');
+  }
+
+  function currentDateIST(nowOpt) {
+    var now = nowOpt instanceof Date ? nowOpt : (nowOpt ? new Date(nowOpt) : nowDate());
+    try {
+      if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        var parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: TIME_ZONE,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(now);
+        var map = {};
+        parts.forEach(function (p) { map[p.type] = p.value; });
+        if (map.year && map.month && map.day) {
+          return map.year + '-' + map.month + '-' + map.day;
+        }
+      }
+    } catch (e) { /* fallback below */ }
+    var ist = new Date(now.getTime() + (5 * 60 + 30) * 60 * 1000);
+    var y = ist.getUTCFullYear();
+    var m = ('0' + (ist.getUTCMonth() + 1)).slice(-2);
+    var d = ('0' + ist.getUTCDate()).slice(-2);
+    return y + '-' + m + '-' + d;
+  }
+
+  function isRegistrationClosed(c, nowOpt) {
+    var dISO = registrationDeadlineISO(c);
+    if (!dISO) return false;
+    var now = nowOpt instanceof Date ? nowOpt : (nowOpt ? new Date(nowOpt) : nowDate());
+    var dateIST = currentDateIST(now);
+    if (dateIST !== dISO) return dateIST > dISO;
+    var cutoff = registrationDeadlineCutoffMs(c);
+    return cutoff !== null && !isNaN(cutoff) ? now.getTime() > cutoff : false;
+  }
+
+  function formatDateMarathi(dateISO) {
+    if (!dateISO || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return '';
+    var parts = dateISO.split('-');
+    var y = Number(parts[0]);
+    var m = Number(parts[1]) - 1;
+    var day = Number(parts[2]);
+    var d = new Date(Date.UTC(y, m, day));
+    return MARATHI_WEEKDAYS[d.getUTCDay()] + ', ' +
+      toMarathi(day) + ' ' + MARATHI_MONTHS[m] + ' ' + toMarathi(y);
+  }
+
+  function registrationDeadlineDateText(c) {
+    var dISO = registrationDeadlineISO(c);
+    return dISO ? formatDateMarathi(dISO) : '';
+  }
+
+  function registrationDeadlineFullText(c) {
+    var dText = registrationDeadlineDateText(c);
+    if (!dText) return '';
+    return dText + ', ' + (UI.regDeadlineCutoff || 'रात्री ११:५९ वाजेपर्यंत');
+  }
+
+  function registrationDeadlineCompactText(c) {
+    var dText = registrationDeadlineDateText(c);
+    if (!dText) return '';
+    return shortDate(dText) + ' (' + (UI.regDeadlineCutoffShort || 'रात्री ११:५९ पर्यंत') + ')';
+  }
+
+  function isBalwadiStandard(standardIndex) {
+    return standardIndex === 0 || S[standardIndex] === 'बालवाडी';
+  }
+
+  /* Audit Balwadi individual subject-based competitions: must have 4 existing
+     topics in data.js. Never invent subjects if a competition has != 4 topics. */
+  function balwadiTopicStatus(c) {
+    if (!c || c.isTeam || !isEligible(c, 0) || !hasGroups(c)) {
+      return { applicable: false, valid: true, topics: [] };
+    }
+    var g = groupFor(c, 0);
+    var topics = (g && Array.isArray(g.topics)) ? g.topics.filter(Boolean) : [];
+    if (topics.length !== 4) {
+      return {
+        applicable: true,
+        valid: false,
+        topics: topics,
+        count: topics.length,
+        message: 'या बालवाडी स्पर्धेसाठी विषयाचे यादृच्छिक वाटप करण्यासाठी नेमके ४ विषय निश्चित केलेले नाहीत (सध्या ' +
+          toMarathi(topics.length) + ' विषय आहेत). कृपया आयोजकांशी संपर्क साधा.'
+      };
+    }
+    return { applicable: true, valid: true, topics: topics, count: 4 };
+  }
+
+  function certificateCalloutHtml(compact) {
+    return '<div class="cert-callout' + (compact ? ' cert-callout--compact' : '') + '" data-certificate-notice>' +
+      '<span class="cert-callout__icon">' + icon('#i-cert') + '</span>' +
+      '<div class="cert-callout__body">' +
+        '<span class="cert-callout__kicker">' + escapeHtml(UI.certificateLabel || 'सहभाग प्रमाणपत्र') + '</span>' +
+        '<p class="cert-callout__title">' + escapeHtml(UI.certificateNotice ||
+          'प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (Certificate of Participation) देण्यात येईल.') + '</p>' +
+        (compact ? '' : '<p class="cert-callout__sub">' + escapeHtml(UI.certificateSubnote || '') + '</p>') +
+      '</div>' +
+    '</div>';
+  }
+
+  window.__FESTIVAL_HELPERS = {
+    competitionDateISO: competitionDateISO,
+    registrationDeadlineISO: registrationDeadlineISO,
+    registrationDeadlineCutoffMs: registrationDeadlineCutoffMs,
+    isRegistrationClosed: isRegistrationClosed,
+    formatDateMarathi: formatDateMarathi,
+    balwadiTopicStatus: balwadiTopicStatus
+  };
+
   function scrollTo(node, block) {
     if (node && typeof node.scrollIntoView === 'function') {
       node.scrollIntoView({ behavior: 'smooth', block: block || 'center' });
@@ -272,6 +425,7 @@
       '<symbol id="i-next" viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></symbol>' +
       '<symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.4"/><circle cx="8.6" cy="10" r="1.6"/><path d="M4 17l5.2-5.2L14 16l3-2.6L20.4 17"/></symbol>' +
       '<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.4M12 7.9h.02" stroke-width="2" stroke-linecap="round"/></symbol>' +
+      '<symbol id="i-cert" viewBox="0 0 24 24"><circle cx="12" cy="9.2" r="5.6"/><path d="M9.2 14l-1.6 6.4 4.4-2.2 4.4 2.2-1.6-6.4"/><path d="M9.8 9.2l1.5 1.5 3-3"/></symbol>' +
 
       '<defs>' +
         '<path id="m-petal" d="M0,-16 C16,-42 16,-74 0,-102 C-16,-74 -16,-42 0,-16 Z"/>' +
@@ -440,6 +594,7 @@
           '</nav>' +
         '</div>' +
         '<p class="footer__note">' + escapeHtml(F.tagline) + '<br/>' +
+          escapeHtml(UI.certificateNotice || 'प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (Certificate of Participation) देण्यात येईल.') + '<br/>' +
           'स्पर्धेचा दिनांक, वेळ, ठिकाण आणि इतर तपशील आयोजकांमार्फत स्वतंत्रपणे जाहीर केले जातील.</p>' +
         '<p class="footer__copy">© २०२६ ' + escapeHtml(F.organizer) + '. सर्व हक्क राखीव.</p>' +
       '</div>';
@@ -536,11 +691,17 @@
 
   /* ============================================================== HOMEPAGE */
   function competitionCard(c, index) {
+    var regDeadline = registrationDeadlineISO(c);
+    var closed = isRegistrationClosed(c);
     return '' +
-      '<a class="ccard reveal" href="' + c.page + '" data-accent="' + c.accent + '">' +
+      '<a class="ccard reveal' + (closed ? ' ccard--closed' : '') + '" href="' + c.page + '" data-accent="' + c.accent + '">' +
         '<span class="ccard__top">' +
           '<span class="ccard__icon">' + icon(c.icon) + '</span>' +
-          (c.mode === 'online' ? onlineBadge('sm') : '<span class="tag tag--num">स्पर्धा क्र. ' + toMarathi(index + 1) + '</span>') +
+          (c.mode === 'online'
+            ? onlineBadge('sm')
+            : (closed
+              ? '<span class="badge badge--closed badge--sm">' + escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + '</span>'
+              : '<span class="tag tag--num">स्पर्धा क्र. ' + toMarathi(index + 1) + '</span>')) +
         '</span>' +
         '<h3 class="ccard__title">' + escapeHtml(c.name) +
           (c.nameLatin ? ' <span class="ccard__latin english-text">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
@@ -559,7 +720,16 @@
             ? escapeHtml(onlineDeadlineLabel(c)) + ': ' + escapeHtml(shortDate(deadlineDate(c)))
             : escapeHtml(c.schedule.date) + ' · ' + escapeHtml(c.schedule.time)) +
         '</span>' : '') +
-        '<span class="ccard__go">तपशील पहा ' + icon('#i-arrow') + '</span>' +
+        (regDeadline
+          ? '<span class="ccard__reg-deadline' + (closed ? ' ccard__reg-deadline--closed' : '') + '" data-reg-deadline="' + c.id + '">' +
+              icon(closed ? '#i-info' : '#i-check') +
+              '<span>' + escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ': <strong>' +
+                escapeHtml(registrationDeadlineCompactText(c)) + '</strong>' +
+                (closed ? ' · ' + escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') : '') +
+              '</span>' +
+            '</span>'
+          : '') +
+        '<span class="ccard__go">' + (closed ? 'तपशील पहा (नोंदणी बंद) ' : 'तपशील पहा ') + icon('#i-arrow') + '</span>' +
       '</a>';
   }
 
@@ -629,13 +799,16 @@
 
       var list = personal.map(function (c) {
         var g = groupFor(c, index);
+        var bNote = (isBalwadiStandard(index) && balwadiTopicStatus(c).applicable && balwadiTopicStatus(c).valid)
+          ? ' · ' + escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप')
+          : '';
         return '' +
           '<li class="ex-item" data-accent="' + c.accent + '">' +
             '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
             '<span class="ex-item__body">' +
               '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
               '<span class="ex-item__group">गट: <strong>' + escapeHtml(g ? stripGroupPrefix(g.label) : '—') + '</strong>' +
-                (g && g.note ? ' · ' + escapeHtml(g.note) : '') + '</span>' +
+                (g && g.note ? ' · ' + escapeHtml(g.note) : '') + bNote + '</span>' +
             '</span>' +
             '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
           '</li>';
@@ -714,6 +887,8 @@
 
     host.innerHTML = rows.map(function (c) {
       var sch = c.schedule;
+      var regDeadline = registrationDeadlineISO(c);
+      var closed = isRegistrationClosed(c);
       var when = sch.kind === 'online'
         ? '<span class="sched__k">' + escapeHtml(onlineDeadlineLabel(c)) + '</span>' +
           '<span class="sched__v">' + escapeHtml(deadlineDate(c)) + '</span>'
@@ -730,6 +905,12 @@
               (c.nameLatin ? ' <span class="english-text srow__latin">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
             '</a>' +
             '<span class="srow__meta">' + when + '</span>' +
+            (regDeadline
+              ? '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + '</span>' +
+                '<span class="sched__v">' + escapeHtml(registrationDeadlineFullText(c)) +
+                (closed ? ' <strong>(' + escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + ')</strong>' : '') +
+                '</span></span>'
+              : '') +
             (sch.kind === 'online'
               ? '<span class="srow__meta"><span class="sched__k">स्वरूप</span>' +
                 '<span class="sched__v">ऑनलाइन स्पर्धा — प्रत्यक्ष स्थळ किंवा वेळ लागू नाही</span></span>'
@@ -1155,6 +1336,9 @@
     var index = C.indexOf(c);
     var isOnline = c.mode === 'online';
     var isTeam = !!c.isTeam;
+    var regDeadline = registrationDeadlineISO(c);
+    var closed = isRegistrationClosed(c);
+    var balwadiStatus = balwadiTopicStatus(c);
 
     /* --- facts ------------------------------------------------------------ */
     var facts = [];
@@ -1173,6 +1357,11 @@
         ? (c.schedule.deadlineLabel || UI.deadlineLabel || 'अंतिम तारीख')
         : 'दिनांक', shortDate(deadlineDate(c))));
     }
+    if (regDeadline) {
+      facts.push(fact(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख',
+        closed ? (UI.regClosedBadge || 'नोंदणी बंद झाली आहे') : registrationDeadlineCompactText(c)));
+    }
+    facts.push(fact(UI.certificateLabel || 'सहभाग प्रमाणपत्र', 'प्रत्येक सहभागी विद्यार्थ्याला'));
 
     /* --- date, time and venue --------------------------------------------- */
     var schedHtml = '';
@@ -1180,11 +1369,18 @@
       var sch = c.schedule;
       var rows = sch.kind === 'online'
         ? [[onlineDeadlineLabel(c), deadlineDate(c)],
+           [UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख',
+            UI.regDeadlinePending || 'स्पर्धेची प्रत्यक्ष तारीख अद्याप जाहीर नसल्याने स्वतंत्रपणे कळवली जाईल'],
            ['स्वरूप', 'ऑनलाइन स्पर्धा'],
            ['प्रत्यक्ष ठिकाण', 'नाही — ही ऑनलाइन स्पर्धा आहे'],
            ['प्रत्यक्ष वेळ', 'नाही — फक्त व्हिडिओ सबमिशनची अंतिम तारीख' +
              (sch.deadlineTime ? ' (' + sch.deadlineTime + ')' : '')]]
-        : [['दिनांक', sch.date], ['वेळ', sch.time], ['ठिकाण', sch.venue]];
+        : [['दिनांक', sch.date],
+           ['वेळ', sch.time],
+           ['ठिकाण', sch.venue],
+           [UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख',
+            registrationDeadlineFullText(c) +
+              (closed ? ' — ' + (UI.regClosedBadge || 'नोंदणी बंद झाली आहे') : '')]];
       schedHtml =
         '<section class="cp-block" id="schedule">' +
           '<h2 class="cp-block__title">' + escapeHtml(UI.scheduleTitle) + '</h2>' +
@@ -1198,6 +1394,13 @@
           '</ul>' +
         '</section>';
     }
+
+    /* --- certificate of participation ------------------------------------- */
+    var certHtml =
+      '<section class="cp-block" id="certificate">' +
+        '<h2 class="cp-block__title">' + escapeHtml(UI.certificateLabel || 'सहभाग प्रमाणपत्र') + '</h2>' +
+        certificateCalloutHtml(false) +
+      '</section>';
 
     /* --- eligibility ------------------------------------------------------- */
     var eligHtml = '';
@@ -1250,6 +1453,12 @@
             ? '<p class="cp-note">' + icon('#i-info') +
               '<span>या स्पर्धेसाठी विषयांची यादी दिलेली नाही; संघाने आपल्या सादरीकरणाचा विषय स्वतः निवडावा.</span></p>'
             : '') +
+          (balwadiStatus.applicable
+            ? '<p class="cp-note" data-balwadi-competition-note>' + icon('#i-info') +
+              '<span>' + escapeHtml(balwadiStatus.valid
+                ? 'बालवाडीच्या विद्यार्थ्यांसाठी विषयाचे यादृच्छिक वाटप केले जाते — बालवाडीच्या चार उपलब्ध विषयांमधून कोणताही एक विषय नोंदणीच्या वेळी समान संभाव्यतेने आपोआप दिला जातो. इयत्ता १ ली पासून पुढील सर्व इयत्तांचे विद्यार्थी स्वतः आवडीचा विषय निवडू शकतात.'
+                : balwadiStatus.message) + '</span></p>'
+            : '') +
         '</section>';
     }
 
@@ -1263,7 +1472,9 @@
       : hasGroups(c)
       ? ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
          'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
-         'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.',
+         (balwadiStatus.applicable && balwadiStatus.valid
+           ? 'इयत्ता १ ली ते १० वीसाठी आपल्या गटाचा एक विषय निवडा (बालवाडीसाठी चार विषयांमधून एका विषयाचे यादृच्छिक वाटप आपोआप होते).'
+           : 'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.'),
          'माहिती तपासून नोंदणी पाठवा.']
       : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
          'इयत्तेनुसार उपलब्ध ऑनलाइन स्पर्धांमधून ही स्पर्धा निवडा.',
@@ -1398,15 +1609,27 @@
           '</h1>' +
           '<p class="cp-head__intro">' + escapeHtml(c.intro) + '</p>' +
           '<ul class="facts">' + facts.join('') + '</ul>' +
+          (closed
+            ? '<div class="closed-banner" role="status" data-competition-closed>' +
+                icon('#i-info') +
+                '<span><strong>' + escapeHtml(UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.') + '</strong> ' +
+                'नोंदणीची अंतिम तारीख (' + escapeHtml(registrationDeadlineFullText(c)) + ') संपली आहे. ' +
+                'आधी पूर्ण झालेल्या नोंदणी वैध राहतील.</span>' +
+              '</div>'
+            : '') +
           '<div class="cp-head__actions">' +
-            '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
-              escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
+            (closed
+              ? '<span class="btn btn--disabled btn--lg" aria-disabled="true" data-cta-closed>' +
+                  escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + '</span>' +
+                '<a class="btn btn--outline btn--lg" href="registration.html">इतर खुल्या स्पर्धांसाठी नोंदणी</a>'
+              : '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
+                  escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>') +
             '<a class="btn btn--outline btn--lg" href="index.html#competitions">सर्व स्पर्धा पहा</a>' +
           '</div>' +
         '</div>' +
       '</header>' +
 
-      '<div class="cp-body">' + schedHtml + eligHtml + groupsHtml + formatHtml + teamHtml +
+      '<div class="cp-body">' + schedHtml + certHtml + eligHtml + groupsHtml + formatHtml + teamHtml +
         criteriaHtml + processHtml + notesHtml + pendingHtml + '</div>' +
 
       '<section class="cp-others reveal">' +
@@ -1417,13 +1640,21 @@
       '<section class="cp-cta reveal">' +
         '<div class="cp-cta__inner">' +
           '<h2 class="cp-cta__title">' + escapeHtml(c.name) + ' — नोंदणी</h2>' +
-          '<p class="cp-cta__text">नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
-            (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
-              : hasGroups(c) ? ' आणि आपला गट आपोआप निश्चित होईल.'
-              : '; ' + escapeHtml(c.name) + ' साठी ' + escapeHtml(eligibilityText(c)) +
-                ' च्या विद्यार्थ्यांना नोंदणी करता येईल.') + '</p>' +
-          '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
-            escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>' +
+          '<p class="cp-cta__text">' +
+            (closed
+              ? escapeHtml(UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.') +
+                ' आपण ज्यांची नोंदणी सुरू आहे अशा इतर स्पर्धांसाठी नोंदणी करू शकता.'
+              : 'नोंदणी पृष्ठावर आपली इयत्ता निवडल्यानंतर उपलब्ध स्पर्धा दिसतील' +
+                (isTeam ? '; संघाचे नाव (Group Name) व किमान ' + toMarathi(c.teamMin) + ' सहभागींची माहिती भरावी लागेल.'
+                  : hasGroups(c) ? ' आणि आपला गट आपोआप निश्चित होईल.'
+                  : '; ' + escapeHtml(c.name) + ' साठी ' + escapeHtml(eligibilityText(c)) +
+                    ' च्या विद्यार्थ्यांना नोंदणी करता येईल.')) +
+          '</p>' +
+          (closed
+            ? '<span class="btn btn--disabled btn--lg" aria-disabled="true" data-cta-closed>' +
+                escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + '</span>'
+            : '<a class="btn btn--primary btn--lg" href="registration.html?competition=' + encodeURIComponent(c.id) + '">' +
+                escapeHtml(UI.registerForThis) + ' ' + icon('#i-arrow') + '</a>') +
         '</div>' +
       '</section>';
 
@@ -1431,8 +1662,26 @@
   }
 
   /* ========================================================= REGISTRATION */
-  var selection = [];        // [{ id, topic }]
+  var selection = [];        // [{ id, topic, allotted, mode }]
   var preselectId = null;
+  var balwadiAllotments = {}; // { [competitionId]: topic } — allotted once per registration entry
+
+  function getOrCreateBalwadiTopic(c) {
+    var status = balwadiTopicStatus(c);
+    if (!status.applicable || !status.valid) return '';
+    if (balwadiAllotments[c.id] && status.topics.indexOf(balwadiAllotments[c.id]) !== -1) {
+      return balwadiAllotments[c.id];
+    }
+    var idx = Math.floor(Math.random() * status.topics.length);
+    var picked = status.topics[idx];
+    balwadiAllotments[c.id] = picked;
+    return picked;
+  }
+
+  if (window.__FESTIVAL_HELPERS) {
+    window.__FESTIVAL_HELPERS.getOrCreateBalwadiTopic = getOrCreateBalwadiTopic;
+    window.__FESTIVAL_HELPERS.resetBalwadiAllotments = function () { balwadiAllotments = {}; };
+  }
 
   function initRegistration() {
     var form = qs('#registrationForm');
@@ -1479,12 +1728,28 @@
       }
 
       var index = Number(standardSelect.value);
-      /* Drop only the selections the new class is not eligible for. */
+      /* Drop selections the new class is not eligible for or whose deadline has closed. */
       selection = selection.filter(function (entry) {
         var c = byId(entry.id);
-        return c && isEligible(c, index);
+        return c && isEligible(c, index) && !isRegistrationClosed(c);
       });
       var dropped = previous - selection.length;
+
+      /* Keep Balwadi random allotments and Class 1+ manual topics strictly separate. */
+      selection.forEach(function (entry) {
+        var c = byId(entry.id);
+        if (!c) return;
+        if (isBalwadiStandard(index)) {
+          var bStatus = balwadiTopicStatus(c);
+          if (bStatus.applicable) {
+            entry.topic = bStatus.valid ? getOrCreateBalwadiTopic(c) : '';
+            entry.allotted = true;
+          }
+        } else if (entry.allotted) {
+          entry.topic = '';
+          entry.allotted = false;
+        }
+      });
 
       hideStatus();
       clearError(qs('#err-competitions'));
@@ -1495,10 +1760,18 @@
 
       var pickedBox = qs('#pickedStandard');
       if (pickedBox) {
+        var allEligible = eligibleFor(index);
+        var openCount = allEligible.filter(function (c) { return !isRegistrationClosed(c); }).length;
+        var closedCount = allEligible.length - openCount;
         pickedBox.hidden = false;
         pickedBox.innerHTML = icon('#i-info') +
           '<span><strong>' + escapeHtml(standardLabel(index)) + '</strong> साठी ' +
-          toMarathi(eligibleFor(index).length) + ' स्पर्धा उपलब्ध आहेत. आवडीच्या स्पर्धा निवडा' +
+          toMarathi(allEligible.length) + ' स्पर्धा उपलब्ध आहेत' +
+          (closedCount > 0
+            ? ' (त्यापैकी <strong>' + toMarathi(openCount) + '</strong> स्पर्धांची नोंदणी सुरू असून ' +
+              toMarathi(closedCount) + ' स्पर्धेची/स्पर्धांची नोंदणी बंद झाली आहे)'
+            : '') +
+          '. आवडीच्या खुल्या स्पर्धा निवडा' +
           (dropped > 0
             ? ' (इयत्ता बदलल्यामुळे ' + toMarathi(dropped) + ' निवड/निवडी काढून टाकल्या आहेत).'
             : '.') + '</span>';
@@ -1539,6 +1812,7 @@
       newBtn.addEventListener('click', function () {
         var success = qs('#successCard');
         if (success) success.hidden = true;
+        balwadiAllotments = {};
         form.hidden = false;
         form.reset();
         resetSelectionUI();
@@ -1594,11 +1868,15 @@
   }
 
   function pickCard(c, standardIndex) {
-    var checked = selection.some(function (s) { return s.id === c.id; });
+    var closed = isRegistrationClosed(c);
+    var checked = !closed && selection.some(function (s) { return s.id === c.id; });
     var group = (standardIndex != null && c.eligibility) ? groupFor(c, standardIndex) : null;
     var isTeam = !!c.isTeam;
+    var isBalwadi = (standardIndex != null && isBalwadiStandard(standardIndex));
+    var balwadiStatus = isBalwadi ? balwadiTopicStatus(c) : { applicable: false, valid: true };
     var hasTopics = !!(group && group.topics && group.topics.length);
     var saved = pickState || {};
+    var regDeadline = registrationDeadlineISO(c);
 
     var bodyInner = '';
 
@@ -1633,8 +1911,46 @@
         (c.pending && c.notes && c.notes.length
           ? '<p class="comp-pick__pending">' + icon('#i-info') + '<span>' + escapeHtml(c.notes[0]) + '</span></p>'
           : '');
+    } else if (isBalwadi && balwadiStatus.applicable) {
+      if (!balwadiStatus.valid) {
+        bodyInner =
+          '<span class="comp-pick__group">' + icon('#i-check') +
+            'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+            (group && group.note ? ' (' + escapeHtml(group.note) + ')' : '') +
+          '</span>' +
+          '<div class="comp-pick__pending" data-balwadi-flag="' + c.id + '" role="alert">' +
+            icon('#i-info') + '<span>' + escapeHtml(balwadiStatus.message) + '</span>' +
+          '</div>' +
+          '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>';
+      } else {
+        var allotted = getOrCreateBalwadiTopic(c);
+        var currentEntry = selection.filter(function (s) { return s.id === c.id; })[0];
+        if (currentEntry) {
+          currentEntry.topic = allotted;
+          currentEntry.allotted = true;
+        }
+        bodyInner =
+          '<span class="comp-pick__group">' + icon('#i-check') +
+            'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
+            (group.note ? ' (' + escapeHtml(group.note) + ')' : '') +
+          '</span>' +
+          '<div class="allotted-topic" data-allotted-topic="' + c.id + '">' +
+            '<span class="allotted-topic__badge">' + icon('#i-star') +
+              '<span>' + escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप') + '</span></span>' +
+            '<p class="allotted-topic__prompt">' +
+              escapeHtml(UI.randomAllotmentPrompt || 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:') + '</p>' +
+            '<p class="allotted-topic__value" data-allotted-topic-value="' + c.id + '">' +
+              escapeHtml(allotted) + '</p>' +
+            '<p class="allotted-topic__hint">' +
+              escapeHtml(UI.randomAllotmentHint || '') + '</p>' +
+          '</div>' +
+          '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>';
+      }
     } else if (hasTopics) {
-      var chosen = saved['topic:' + c.id] || (selection.filter(function (s) { return s.id === c.id; })[0] || {}).topic || '';
+      var existing = selection.filter(function (s) { return s.id === c.id; })[0];
+      var candidate = saved['topic:' + c.id] || (existing && !existing.allotted ? existing.topic : '') || '';
+      var chosen = group.topics.indexOf(candidate) !== -1 ? candidate : '';
+      if (existing && !existing.allotted) existing.topic = chosen;
       bodyInner =
         '<span class="comp-pick__group">' + icon('#i-check') +
           'आपोआप निश्चित गट: ' + escapeHtml(groupDisplay(c, group)) +
@@ -1676,15 +1992,32 @@
           : '');
     }
 
+    var deadlineMeta = '';
+    if (regDeadline) {
+      deadlineMeta = closed
+        ? '<span class="comp-pick__deadline comp-pick__deadline--closed" data-pick-closed="' + c.id + '">' +
+            escapeHtml(UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.') + ' (' +
+            escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ': ' +
+            escapeHtml(registrationDeadlineFullText(c)) + ')</span>'
+        : '<span class="comp-pick__deadline" data-pick-deadline="' + c.id + '">' +
+            escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ': <strong>' +
+            escapeHtml(registrationDeadlineFullText(c)) + '</strong></span>';
+    }
+
     return '' +
-      '<div class="comp-pick' + (checked ? ' is-selected' : '') + '" data-comp-pick="' + c.id + '" data-accent="' + c.accent + '">' +
+      '<div class="comp-pick' + (checked ? ' is-selected' : '') + (closed ? ' comp-pick--closed' : '') +
+        '" data-comp-pick="' + c.id + '" data-accent="' + c.accent + '">' +
         '<div class="comp-pick__top">' +
           '<span class="comp-pick__icon">' + icon(c.icon) + '</span>' +
           '<label class="check">' +
-            '<input class="check__input" type="checkbox" value="' + c.id + '" data-comp-checkbox="' + c.id + '"' + (checked ? ' checked' : '') + ' />' +
+            '<input class="check__input" type="checkbox" value="' + c.id + '" data-comp-checkbox="' + c.id + '"' +
+              (checked ? ' checked' : '') +
+              (closed ? ' disabled aria-disabled="true"' : '') + ' />' +
             '<span class="check__text">' +
               '<span class="comp-pick__name">' + escapeHtml(c.name) +
-                (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') + '</span>' +
+                (c.nameLatin ? ' <span class="english-text comp-pick__latin">(' + escapeHtml(c.nameLatin) + ')</span>' : '') +
+                (closed ? ' <span class="badge badge--closed badge--sm">' + escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + '</span>' : '') +
+              '</span>' +
               '<span class="comp-pick__elig">' +
                 (c.eligibility
                   ? 'पात्रता: ' + escapeHtml(eligibilityText(c))
@@ -1692,6 +2025,7 @@
                 (c.mode === 'online' ? ' · ऑनलाइन' : '') +
                 (isTeam ? ' · संघ स्पर्धा' : '') +
               '</span>' +
+              deadlineMeta +
             '</span>' +
           '</label>' +
         '</div>' +
@@ -1710,8 +2044,28 @@
         var c = byId(id);
 
         if (checkbox.checked) {
+          if (c && isRegistrationClosed(c)) {
+            checkbox.checked = false;
+            setError(qs('#err-competitions'),
+              c.name + ' — ' + (UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.'));
+            return;
+          }
+          var stdEl = qs('#standard');
+          var stdIdx = (stdEl && stdEl.value !== '') ? Number(stdEl.value) : null;
+          var isBalwadiNow = (stdIdx != null && isBalwadiStandard(stdIdx));
+          var bStatus = (isBalwadiNow && c) ? balwadiTopicStatus(c) : { applicable: false, valid: true };
+          var initialTopic = (bStatus.applicable && bStatus.valid) ? getOrCreateBalwadiTopic(c) : '';
+
           if (!selection.some(function (s) { return s.id === id; })) {
-            selection.push({ id: id, topic: '', mode: c ? c.mode : 'offline' });
+            selection.push({
+              id: id,
+              topic: initialTopic,
+              allotted: !!(bStatus.applicable && bStatus.valid),
+              mode: c ? c.mode : 'offline'
+            });
+          } else if (bStatus.applicable && bStatus.valid) {
+            var current = selection.filter(function (s) { return s.id === id; })[0];
+            if (current) { current.topic = initialTopic; current.allotted = true; }
           }
           if (pick) pick.classList.add('is-selected');
           if (body) body.hidden = false;
@@ -1798,6 +2152,14 @@
     if (!preselectId) { box.hidden = true; box.innerHTML = ''; return; }
     var c = byId(preselectId);
     box.hidden = false;
+    if (isRegistrationClosed(c)) {
+      box.innerHTML = icon('#i-info') +
+        '<span><strong>' + escapeHtml(c.name) + '</strong> — ' +
+        escapeHtml(UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.') +
+        ' (' + escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ': ' +
+        escapeHtml(registrationDeadlineFullText(c)) + '). आपण ज्यांची नोंदणी सुरू आहे अशा इतर स्पर्धांसाठी येथून नोंदणी करू शकता.</span>';
+      return;
+    }
     box.innerHTML = icon('#i-check') +
       '<span><strong>' + escapeHtml(c.name) + '</strong> या स्पर्धेसाठी तुम्ही नोंदणी पृष्ठावर आला आहात. ' +
       'कृपया आपली इयत्ता निवडा — ' + escapeHtml(eligibilityText(c)) +
@@ -1813,6 +2175,15 @@
        so nothing is preselected until the participant picks a standard. */
     if (standardIndex == null) return;
 
+    if (isRegistrationClosed(c)) {
+      showStatus('info', icon('#i-info') +
+        '<div><strong>' + escapeHtml(c.name) + ' — ' +
+        escapeHtml(UI.regClosedMessage || 'या स्पर्धेसाठी नोंदणी बंद झाली आहे.') + '</strong><br/>' +
+        escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ' (' +
+        escapeHtml(registrationDeadlineFullText(c)) + ') उलटून गेली आहे. आपण येथून ज्यांची नोंदणी सुरू आहे अशा इतर स्पर्धांसाठी नोंदणी करू शकता.</div>');
+      return;
+    }
+
     if (!isEligible(c, standardIndex)) {
       showStatus('info', icon('#i-info') +
         '<div><strong>' + escapeHtml(c.name) + ' या स्पर्धेसाठी ' + escapeHtml(standardLabel(standardIndex)) +
@@ -1824,9 +2195,19 @@
   }
 
   function checkPreselect(c, standardIndex) {
+    if (isRegistrationClosed(c)) return;
     if (selection.some(function (s) { return s.id === c.id; })) return;
 
-    selection.push({ id: c.id, topic: '', mode: c.mode });
+    var isBalwadi = (standardIndex != null && isBalwadiStandard(standardIndex));
+    var bStatus = isBalwadi ? balwadiTopicStatus(c) : { applicable: false, valid: true };
+    var initialTopic = (bStatus.applicable && bStatus.valid) ? getOrCreateBalwadiTopic(c) : '';
+
+    selection.push({
+      id: c.id,
+      topic: initialTopic,
+      allotted: !!(bStatus.applicable && bStatus.valid),
+      mode: c.mode
+    });
 
     var checkbox = qs('[data-comp-checkbox="' + c.id + '"]');
     var pick = qs('[data-comp-pick="' + c.id + '"]');
@@ -1841,7 +2222,11 @@
       note.innerHTML = icon('#i-check') + '<span><strong>' + escapeHtml(c.name) + '</strong> आपोआप निवडली आहे. ' +
         (group
           ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
-            (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.')
+            (bStatus.applicable
+              ? (bStatus.valid
+                ? 'आपल्याला स्पर्धेसाठी विषयाचे यादृच्छिक वाटप करण्यात आले आहे.'
+                : escapeHtml(bStatus.message))
+              : (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.'))
           : 'पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong> — या स्पर्धेत स्वतंत्र गट किंवा विषय नाहीत.') +
         '</span>';
     }
@@ -1891,14 +2276,38 @@
     if (!selection.length) errors.push(setError(qs('#err-competitions'), 'कृपया किमान एका स्पर्धेसाठी नोंदणी करा.'));
 
     var standardIndex = standard.value === '' ? null : Number(standard.value);
+    var closedSelected = [];
 
     selection.forEach(function (entry) {
       var c = byId(entry.id);
       if (!c) return;
 
-      /* topic: only required when the assigned group actually has topics */
+      /* Re-check per-competition registration deadline at submit time (Asia/Kolkata). */
+      if (isRegistrationClosed(c)) {
+        closedSelected.push(entry.id);
+        errors.push(setError(qs('#err-competitions'),
+          c.name + ' या स्पर्धेसाठी नोंदणी बंद झाली आहे (' +
+          (UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + ': ' +
+          registrationDeadlineFullText(c) + '). कृपया फक्त खुल्या स्पर्धा निवडा.'));
+        return;
+      }
+
+      /* topic: Balwadi gets 1-of-4 random subject allotment; Class 1+ picks manually */
       var group = (c.eligibility && standardIndex != null) ? groupFor(c, standardIndex) : null;
-      if (group && group.topics && group.topics.length && !entry.topic) {
+      var isBalwadi = (standardIndex != null && isBalwadiStandard(standardIndex));
+      var bStatus = isBalwadi ? balwadiTopicStatus(c) : { applicable: false, valid: true };
+
+      if (bStatus.applicable) {
+        if (!bStatus.valid) {
+          errors.push(setError(qs('#err-topic-' + entry.id), bStatus.message));
+        } else {
+          entry.topic = getOrCreateBalwadiTopic(c);
+          entry.allotted = true;
+          if (!entry.topic || bStatus.topics.indexOf(entry.topic) === -1) {
+            errors.push(setError(qs('#err-topic-' + entry.id), 'विषयाचे यादृच्छिक वाटप पूर्ण होऊ शकले नाही.'));
+          }
+        }
+      } else if (group && group.topics && group.topics.length && !entry.topic) {
         errors.push(setError(qs('#err-topic-' + entry.id), 'कृपया या स्पर्धेसाठी विषय निवडा.'));
       }
 
@@ -1930,6 +2339,14 @@
         }
       }
     });
+
+    if (closedSelected.length && standardIndex != null) {
+      selection = selection.filter(function (entry) {
+        return closedSelected.indexOf(entry.id) === -1;
+      });
+      renderOfflinePicks(standardIndex);
+      renderOnlinePicks(standardIndex);
+    }
 
     var declaration = qs('#declaration', form);
     if (!declaration.checked) {
@@ -2115,9 +2532,25 @@
       .then(function (text) {
         var data = null;
         try { data = JSON.parse(text); } catch (e) { data = null; }
-        if (data && data.result === 'error') throw new Error(data.message || 'server error');
+        if (data && data.result === 'error') {
+          var serverErr = new Error(data.message || 'server error');
+          serverErr.isServerMessage = !!data.message;
+          throw serverErr;
+        }
         if (!data || data.result !== 'success') throw new Error('unexpected response');
+
+        /* Synchronise with authoritative server-side Balwadi allotment when returned. */
+        if (data.allottedTopics && typeof data.allottedTopics === 'object') {
+          payload.registrations.forEach(function (r) {
+            if (Object.prototype.hasOwnProperty.call(data.allottedTopics, r.competitionId) &&
+                data.allottedTopics[r.competitionId]) {
+              r.topic = data.allottedTopics[r.competitionId];
+            }
+          });
+        }
+
         showSuccess(payload, data);
+        balwadiAllotments = {};
         form.hidden = true;
         form.reset();
         resetSelectionUI();
@@ -2126,7 +2559,9 @@
       .catch(function (error) {
         var message = (error && error.name === 'AbortError')
           ? 'विनंती पूर्ण होण्यास जास्त वेळ लागला. कृपया आपले इंटरनेट कनेक्शन तपासून पुन्हा प्रयत्न करा.'
-          : 'नोंदणी पाठवताना तांत्रिक अडचण आली. आपली माहिती सुरक्षितपणे पोहोचली नसल्यास कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.';
+          : (error && error.isServerMessage && error.message)
+            ? error.message
+            : 'नोंदणी पाठवताना तांत्रिक अडचण आली. आपली माहिती सुरक्षितपणे पोहोचली नसल्यास कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.';
         showStatus('error', icon('#i-info') +
           '<div><strong>नोंदणी पूर्ण झाली नाही.</strong><br/>' + escapeHtml(message) + '</div>');
       })
@@ -2171,7 +2606,14 @@
             line = escapeHtml(r.group) + ' · ' + escapeHtml(UI.groupNameLabel) + ': ' +
               escapeHtml(r.team.groupName || '') + ' · सहभागी: ' + toMarathi(r.team.members.length);
           } else if (r.topic) {
-            line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
+            if (payload.standard === 'बालवाडी') {
+              line = escapeHtml(r.group) + ' · ' +
+                escapeHtml(UI.randomAllotmentPrompt || 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:') +
+                ' <strong>' + escapeHtml(r.topic) + '</strong> (' +
+                escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप') + ')';
+            } else {
+              line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
+            }
           } else {
             line = escapeHtml(r.group);
           }

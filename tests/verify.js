@@ -743,6 +743,104 @@ assert(DATA.competitions.filter(c => c.mode === 'offline').length === 6, 'All si
 
 
 /* =============================================================================
+   SECTION 10: CERTIFICATE OF PARTICIPATION, PER-COMPETITION DEADLINES & BALWADI
+   ========================================================================== */
+console.log('\n[10/10] Certificate, per-competition deadlines & Balwadi random allotment...');
+
+/* 10a. Cache-busting bumped consistently to ?v10 across all 12 HTML pages */
+const htmlFilesList = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'));
+assert(htmlFilesList.length === 12, 'All 12 HTML pages are present');
+htmlFilesList.forEach(file => {
+  const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  assert(!html.includes('?v9'), `${file} has no stale ?v9 asset query`);
+  assert(html.includes('style.css?v10') && html.includes('data.js?v10') && html.includes('site.js?v10'),
+    `${file} loads style.css?v10, data.js?v10, and site.js?v10`);
+});
+
+/* 10b. Certificate of Participation policy & terminology */
+assert(DATA.ui.certificateLabel === 'सहभाग प्रमाणपत्र', 'UI defines सहभाग प्रमाणपत्र label');
+assert(
+  DATA.ui.certificateNotice === 'प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र (Certificate of Participation) देण्यात येईल.',
+  'UI defines exact Marathi Certificate of Participation announcement'
+);
+assert(indexHtml.includes('सहभाग प्रमाणपत्र') && indexHtml.includes('प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र'),
+  'index.html announces Certificate of Participation for every participant');
+assert(regHtml.includes('सहभाग प्रमाणपत्र') && regHtml.includes('प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र'),
+  'registration.html announces Certificate of Participation');
+assert(siteJs.includes('id="certificate"') && siteJs.includes('certificateCalloutHtml'),
+  'site.js renders Certificate of Participation callout on individual competition pages');
+assert(DATA.faq.some(item => item.q.includes('सहभाग प्रमाणपत्र') && item.a.includes('जय किंवा पराजय')),
+  'FAQ explicitly clarifies every participant receives a certificate regardless of winning or losing');
+assert(!/downloadCertificate|generateCertificate|certificate\.pdf/i.test(siteJs + indexHtml + regHtml),
+  'No automated certificate-generation or download system was invented');
+
+/* 10c. Per-competition registration deadline audit & frontend/backend sync */
+assert(DATA.ui.regDeadlineLabel === 'नोंदणीची अंतिम तारीख', 'UI defines नोंदणीची अंतिम तारीख label');
+const expectedCompDates = {
+  'chitrakala': '2026-11-22',
+  'mehndi': '2026-11-23',
+  'nibandh': '2026-11-27',
+  'vaktrutva': '2026-11-28',
+  'ekpatri': '2026-11-28',
+  'rangoli': '2026-11-29',
+  'group-dance': null,
+  'group-singing': null,
+  'group-fashion-show': null,
+  'reel-star': null
+};
+DATA.competitions.forEach(c => {
+  assert(Object.prototype.hasOwnProperty.call(c.schedule, 'competitionDateISO'),
+    `${c.id} explicitly declares schedule.competitionDateISO`);
+  assert(c.schedule.competitionDateISO === expectedCompDates[c.id],
+    `${c.id} competitionDateISO matches audited event date (${expectedCompDates[c.id]})`);
+  if (c.mode === 'online') {
+    assert(c.schedule.competitionDateISO === null,
+      `${c.id} keeps competitionDateISO null so video-submission deadline (${c.schedule.dateISO}) is never treated as event date`);
+  }
+});
+
+const backendDatesMatch = codeGs.match(/var\s+COMPETITION_DATES_ISO\s*=\s*\{([\s\S]*?)\};/);
+assert(!!backendDatesMatch, 'Code.gs defines COMPETITION_DATES_ISO');
+Object.entries(expectedCompDates).forEach(([id, iso]) => {
+  const expectedLiteral = iso === null ? 'null' : `'${iso}'`;
+  const re = new RegExp(`'${id}'\\s*:\\s*${expectedLiteral}`);
+  assert(re.test(backendDatesMatch[1]), `Code.gs COMPETITION_DATES_ISO['${id}'] matches data.js (${expectedLiteral})`);
+});
+assert(codeGs.includes('T23:59:59.999+05:30') && siteJs.includes('T23:59:59.999+05:30'),
+  'Both frontend and backend enforce exact 11:59 PM IST (Asia/Kolkata) previous-day cutoff');
+
+/* 10d. Balwadi random subject allotment sync & 4-topic integrity */
+assert(DATA.ui.randomAllotmentLabel === 'विषयाचे यादृच्छिक वाटप', 'UI defines विषयाचे यादृच्छिक वाटप label');
+assert(DATA.ui.randomAllotmentPrompt === 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:',
+  'UI defines exact Marathi random allotment prompt');
+assert(DATA.standards[0] === 'बालवाडी' && DATA.standards[1] === 'इयत्ता १ ली',
+  'Standards index 0 is बालवाडी and index 1 is इयत्ता १ ली');
+
+const balwadiSubjectComps = DATA.competitions.filter(c =>
+  !c.isTeam && c.eligibility && c.eligibility.from <= 0 && c.groups && c.groups.length > 0
+);
+assert(balwadiSubjectComps.length === 1 && balwadiSubjectComps[0].id === 'chitrakala',
+  'चित्रकला is the Balwadi individual subject-based competition');
+balwadiSubjectComps.forEach(c => {
+  const g0 = c.groups.find(g => g.from <= 0 && g.to >= 0);
+  assert(g0 && Array.isArray(g0.topics) && g0.topics.length === 4,
+    `${c.id} Balwadi group contains exactly 4 existing topics`);
+  g0.topics.forEach(t => {
+    assert(codeGs.includes(`'${t}'`), `Code.gs BALWADI_TOPICS includes '${t}' for ${c.id}`);
+  });
+});
+
+/* 10e. Devanagari CSS safety on newly added selectors */
+['.cert-callout', '.allotted-topic', '.closed-banner', '.comp-pick__deadline', '.ccard__reg-deadline'].forEach(sel => {
+  assert(styleCss.includes(sel), `style.css styles ${sel}`);
+});
+assert(!/\.allotted-topic[^{]*\{[^}]*letter-spacing\s*:\s*[1-9]/.test(styleCss),
+  'Balwadi allotted topic styles do not apply positive letter-spacing to Devanagari text');
+assert(!/\.cert-callout[^{]*\{[^}]*letter-spacing\s*:\s*[1-9]/.test(styleCss),
+  'Certificate callout styles do not apply positive letter-spacing to Devanagari text');
+
+
+/* =============================================================================
    SUMMARY AND EXIT
    ========================================================================== */
 console.log('\n========================================');
