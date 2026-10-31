@@ -1428,7 +1428,24 @@ p{ margin:0 0 1em; }
 }
 .allotted-topic__badge .icon{ width:15px; height:15px; }
 .allotted-topic__prompt{
-  margin:8px 0 4px; font-size:.94rem; font-weight:600; color:var(--ink-2); line-height:1.6;
+  margin:8px 0 8px; font-size:.94rem; font-weight:600; color:var(--ink-2); line-height:1.6;
+}
+.allotted-topic__list{
+  list-style:none; margin:0 0 10px; padding:0;
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;
+}
+.allotted-topic__item{
+  display:flex; align-items:center; gap:9px;
+  padding:8px 12px; border-radius:10px;
+  background:#FFFFFF; border:1.5px solid rgba(122,31,43,.22);
+  font-family:var(--font-serif); font-size:1.04rem; font-weight:700;
+  color:var(--maroon-deep); line-height:1.55;
+}
+.allotted-topic__num{
+  flex:0 0 24px; width:24px; height:24px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:rgba(193,39,45,.12); color:var(--maroon);
+  font-family:var(--font-sans); font-size:.82rem; font-weight:700;
 }
 .allotted-topic__value{
   margin:4px 0 8px; padding:10px 14px; border-radius:10px;
@@ -1445,6 +1462,7 @@ p{ margin:0 0 1em; }
   .cert-callout__icon{ flex:0 0 36px; width:36px; height:36px; }
   .cert-callout__title{ font-size:.96rem; }
   .allotted-topic{ padding:12px 13px; }
+  .allotted-topic__list{ grid-template-columns:1fr; }
   .allotted-topic__value{ font-size:1.08rem; padding:9px 12px; }
 }
 

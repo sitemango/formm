@@ -18,8 +18,8 @@
 
    Nothing secret lives here: the deployment URL is public by design, which is
    why every field, per-competition registration deadline (Asia/Kolkata), and
-   Balwadi random subject allotment is enforced on this side before a row is
-   written.
+   Balwadi competition-day random subject rule is enforced on this side before
+   a row is written.
    ========================================================================== */
 
 /* ------------------------------------------------------------------ settings */
@@ -70,8 +70,11 @@ var MIN_TEAM_MEMBERS = 5;
 
 /* Balwadi random subject allotment (विषयाचे यादृच्छिक वाटप), synchronised with
    data.js. Only individual subject-based competitions eligible for Balwadi
-   appear here, and each must define exactly 4 existing topics. */
+   appear here, and each must define exactly 4 existing topics. For Balwadi,
+   no topic is chosen at registration time — any 1 of the 4 listed topics is
+   randomly given during the actual competition. */
 var BALWADI_STANDARD = 'बालवाडी';
+var BALWADI_SHEET_NOTE_PREFIX = 'प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय';
 var BALWADI_TOPICS = {
   'chitrakala': ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे']
 };
@@ -145,13 +148,14 @@ function doPost(e) {
 
       if (referenceExists_(sheet, reference)) continue;   // duplicate delivery
 
-      /* Authoritative server-side random subject allotment for Balwadi:
-         prevents a participant from choosing or manipulating the submitted topic. */
+      /* Authoritative server-side Balwadi topic record: Balwadi participants
+         cannot choose a topic during registration — 1 of the 4 listed topics
+         will be randomly given during the actual competition. */
       var finalTopic = reg.topic;
       if (isBalwadi_(payload.standard) && compId && TEAM_COMPETITIONS.indexOf(compId) === -1) {
-        var allotted = allotBalwadiTopic_(compId);
-        if (!allotted) continue;
-        finalTopic = allotted;
+        var sheetNote = balwadiSheetTopicNote_(compId);
+        if (!sheetNote) continue;
+        finalTopic = sheetNote;
         allottedTopics[compId] = finalTopic;
       }
 
@@ -300,8 +304,14 @@ function balwadiTopicsFor_(compId) {
   return BALWADI_TOPICS[compId];
 }
 
-/* Uniformly allot 1 of the 4 allowed Balwadi topics on the server. */
-function allotBalwadiTopic_(compId) {
+function balwadiSheetTopicNote_(compId) {
+  var allowed = balwadiTopicsFor_(compId);
+  if (!Array.isArray(allowed) || allowed.length !== 4) return null;
+  return BALWADI_SHEET_NOTE_PREFIX + ' (' + allowed.join(' / ') + ')';
+}
+
+/* Competition-day helper: uniformly draw 1 of the 4 listed Balwadi topics. */
+function drawRandomBalwadiTopic_(compId) {
   var allowed = balwadiTopicsFor_(compId);
   if (!Array.isArray(allowed) || allowed.length !== 4) return null;
   var idx = Math.floor(Math.random() * allowed.length);
@@ -389,15 +399,17 @@ function validate_(p, nowOpt) {
         return 'कृपया किमान ५ सहभागी विद्यार्थ्यांची नावे व इयत्ता भरा.';
       }
     } else if (isBalwadi_(p.standard)) {
-      /* Balwadi individual competitions must have 4 allowed topics, and any
-         client-submitted topic must belong to that allowed list. */
+      /* Balwadi individual competitions must have 4 listed topics; participants
+         cannot pick or submit a single topic at registration time because 1 of
+         the 4 topics is randomly given during the actual competition. */
       var allowed = balwadiTopicsFor_(compId);
-      if (!Array.isArray(allowed) || allowed.length !== 4) {
+      var expectedNote = balwadiSheetTopicNote_(compId);
+      if (!Array.isArray(allowed) || allowed.length !== 4 || !expectedNote) {
         return (reg.competition || tab) +
           ' या बालवाडी स्पर्धेसाठी नेमके ४ विषय उपलब्ध नाहीत. कृपया आयोजकांशी संपर्क करा.';
       }
-      if (reg.topic && allowed.indexOf(reg.topic) === -1) {
-        return (reg.competition || tab) + ' या स्पर्धेसाठी अवैध विषय पाठवला गेला आहे.';
+      if (reg.topic && reg.topic !== expectedNote) {
+        return 'बालवाडीच्या विद्यार्थ्यांना नोंदणीच्या वेळी विषय निवडता येत नाही; दिलेल्या ४ विषयांपैकी कोणताही १ विषय प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने दिला जाईल.';
       }
     }
   }
@@ -522,5 +534,5 @@ function testValidation() {
   var noComp = JSON.parse(JSON.stringify(sample));
   noComp.registrations = [];
   Logger.log('no competition → ' + (validate_(noComp, openNow) || 'OK (unexpected)'));
-  Logger.log('balwadi random allotment → ' + allotBalwadiTopic_('chitrakala'));
+  Logger.log('balwadi sheet topic note → ' + balwadiSheetTopicNote_('chitrakala'));
 }

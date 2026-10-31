@@ -747,14 +747,14 @@ assert(DATA.competitions.filter(c => c.mode === 'offline').length === 6, 'All si
    ========================================================================== */
 console.log('\n[10/10] Certificate, per-competition deadlines & Balwadi random allotment...');
 
-/* 10a. Cache-busting bumped consistently to ?v10 across all 12 HTML pages */
+/* 10a. Cache-busting bumped consistently to ?v11 across all 12 HTML pages */
 const htmlFilesList = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'));
 assert(htmlFilesList.length === 12, 'All 12 HTML pages are present');
 htmlFilesList.forEach(file => {
   const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  assert(!html.includes('?v9'), `${file} has no stale ?v9 asset query`);
-  assert(html.includes('style.css?v10') && html.includes('data.js?v10') && html.includes('site.js?v10'),
-    `${file} loads style.css?v10, data.js?v10, and site.js?v10`);
+  assert(!html.includes('?v9') && !html.includes('?v10'), `${file} has no stale ?v9/?v10 asset query`);
+  assert(html.includes('style.css?v11') && html.includes('data.js?v11') && html.includes('site.js?v11'),
+    `${file} loads style.css?v11, data.js?v11, and site.js?v11`);
 });
 
 /* 10b. Certificate of Participation policy & terminology */
@@ -809,10 +809,21 @@ Object.entries(expectedCompDates).forEach(([id, iso]) => {
 assert(codeGs.includes('T23:59:59.999+05:30') && siteJs.includes('T23:59:59.999+05:30'),
   'Both frontend and backend enforce exact 11:59 PM IST (Asia/Kolkata) previous-day cutoff');
 
-/* 10d. Balwadi random subject allotment sync & 4-topic integrity */
+/* 10d. Balwadi competition-day random subject allotment sync & 4-topic integrity */
 assert(DATA.ui.randomAllotmentLabel === 'विषयाचे यादृच्छिक वाटप', 'UI defines विषयाचे यादृच्छिक वाटप label');
-assert(DATA.ui.randomAllotmentPrompt === 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:',
-  'UI defines exact Marathi random allotment prompt');
+assert(
+  DATA.ui.randomAllotmentPrompt.includes('प्रत्यक्ष स्पर्धेच्या वेळी') &&
+  DATA.ui.randomAllotmentPrompt.includes('४ विषयांपैकी'),
+  'UI explains that 1 of the 4 listed Balwadi topics will be randomly given during the actual competition'
+);
+assert(
+  DATA.ui.randomAllotmentSheetNote === 'प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय',
+  'UI defines competition-day random allotment note for sheet/summary'
+);
+assert(
+  DATA.faq.some(item => item.q.includes('बालवाडी') && item.a.includes('प्रत्यक्ष स्पर्धेच्या वेळी')),
+  'FAQ explains Balwadi gets 1 of the 4 listed topics randomly during the actual competition'
+);
 assert(DATA.standards[0] === 'बालवाडी' && DATA.standards[1] === 'इयत्ता १ ली',
   'Standards index 0 is बालवाडी and index 1 is इयत्ता १ ली');
 
