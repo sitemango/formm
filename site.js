@@ -272,6 +272,13 @@
     return { applicable: true, valid: true, topics: topics, count: 4 };
   }
 
+  function balwadiSheetTopicNote(c) {
+    var status = balwadiTopicStatus(c);
+    if (!status.applicable || !status.valid) return '';
+    return (UI.randomAllotmentSheetNote || 'प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय') +
+      ' (' + status.topics.join(' / ') + ')';
+  }
+
   function certificateCalloutHtml(compact) {
     return '<div class="cert-callout' + (compact ? ' cert-callout--compact' : '') + '" data-certificate-notice>' +
       '<span class="cert-callout__icon">' + icon('#i-cert') + '</span>' +
@@ -290,7 +297,8 @@
     registrationDeadlineCutoffMs: registrationDeadlineCutoffMs,
     isRegistrationClosed: isRegistrationClosed,
     formatDateMarathi: formatDateMarathi,
-    balwadiTopicStatus: balwadiTopicStatus
+    balwadiTopicStatus: balwadiTopicStatus,
+    balwadiSheetTopicNote: balwadiSheetTopicNote
   };
 
   function scrollTo(node, block) {
@@ -800,7 +808,7 @@
       var list = personal.map(function (c) {
         var g = groupFor(c, index);
         var bNote = (isBalwadiStandard(index) && balwadiTopicStatus(c).applicable && balwadiTopicStatus(c).valid)
-          ? ' · ' + escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप')
+          ? ' · प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय'
           : '';
         return '' +
           '<li class="ex-item" data-accent="' + c.accent + '">' +
@@ -1456,7 +1464,7 @@
           (balwadiStatus.applicable
             ? '<p class="cp-note" data-balwadi-competition-note>' + icon('#i-info') +
               '<span>' + escapeHtml(balwadiStatus.valid
-                ? 'बालवाडीच्या विद्यार्थ्यांसाठी विषयाचे यादृच्छिक वाटप केले जाते — बालवाडीच्या चार उपलब्ध विषयांमधून कोणताही एक विषय नोंदणीच्या वेळी समान संभाव्यतेने आपोआप दिला जातो. इयत्ता १ ली पासून पुढील सर्व इयत्तांचे विद्यार्थी स्वतः आवडीचा विषय निवडू शकतात.'
+                ? 'बालवाडीच्या विद्यार्थ्यांसाठी विषयाचे यादृच्छिक वाटप प्रत्यक्ष स्पर्धेच्या वेळी केले जाईल — वरील चार विषयांपैकी कोणताही एक विषय प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने (Randomly) दिला जाईल (नोंदणी करताना विषय निवडण्याची गरज नाही). इयत्ता १ ली पासून पुढील सर्व इयत्तांचे विद्यार्थी स्वतः आवडीचा विषय निवडू शकतात.'
                 : balwadiStatus.message) + '</span></p>'
             : '') +
         '</section>';
@@ -1473,7 +1481,7 @@
       ? ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
          'इयत्तेनुसार उपलब्ध स्पर्धांमधून ही स्पर्धा निवडा.',
          (balwadiStatus.applicable && balwadiStatus.valid
-           ? 'इयत्ता १ ली ते १० वीसाठी आपल्या गटाचा एक विषय निवडा (बालवाडीसाठी चार विषयांमधून एका विषयाचे यादृच्छिक वाटप आपोआप होते).'
+           ? 'इयत्ता १ ली ते १० वीसाठी आपल्या गटाचा एक विषय निवडा (बालवाडीसाठी दिलेल्या चार विषयांपैकी कोणताही एक विषय प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने दिला जाईल).'
            : 'आपल्या गटासाठी दाखवलेल्या विषयांपैकी एक विषय निवडा.'),
          'माहिती तपासून नोंदणी पाठवा.']
       : ['नोंदणी पृष्ठावर विद्यार्थ्याची माहिती व इयत्ता भरा.',
@@ -1664,24 +1672,6 @@
   /* ========================================================= REGISTRATION */
   var selection = [];        // [{ id, topic, allotted, mode }]
   var preselectId = null;
-  var balwadiAllotments = {}; // { [competitionId]: topic } — allotted once per registration entry
-
-  function getOrCreateBalwadiTopic(c) {
-    var status = balwadiTopicStatus(c);
-    if (!status.applicable || !status.valid) return '';
-    if (balwadiAllotments[c.id] && status.topics.indexOf(balwadiAllotments[c.id]) !== -1) {
-      return balwadiAllotments[c.id];
-    }
-    var idx = Math.floor(Math.random() * status.topics.length);
-    var picked = status.topics[idx];
-    balwadiAllotments[c.id] = picked;
-    return picked;
-  }
-
-  if (window.__FESTIVAL_HELPERS) {
-    window.__FESTIVAL_HELPERS.getOrCreateBalwadiTopic = getOrCreateBalwadiTopic;
-    window.__FESTIVAL_HELPERS.resetBalwadiAllotments = function () { balwadiAllotments = {}; };
-  }
 
   function initRegistration() {
     var form = qs('#registrationForm');
@@ -1735,14 +1725,14 @@
       });
       var dropped = previous - selection.length;
 
-      /* Keep Balwadi random allotments and Class 1+ manual topics strictly separate. */
+      /* Keep Balwadi competition-day random topic note and Class 1+ manual topics strictly separate. */
       selection.forEach(function (entry) {
         var c = byId(entry.id);
         if (!c) return;
         if (isBalwadiStandard(index)) {
           var bStatus = balwadiTopicStatus(c);
           if (bStatus.applicable) {
-            entry.topic = bStatus.valid ? getOrCreateBalwadiTopic(c) : '';
+            entry.topic = bStatus.valid ? balwadiSheetTopicNote(c) : '';
             entry.allotted = true;
           }
         } else if (entry.allotted) {
@@ -1812,7 +1802,6 @@
       newBtn.addEventListener('click', function () {
         var success = qs('#successCard');
         if (success) success.hidden = true;
-        balwadiAllotments = {};
         form.hidden = false;
         form.reset();
         resetSelectionUI();
@@ -1923,10 +1912,10 @@
           '</div>' +
           '<span class="field__error" id="err-topic-' + c.id + '" role="alert"></span>';
       } else {
-        var allotted = getOrCreateBalwadiTopic(c);
+        var sheetTopicNote = balwadiSheetTopicNote(c);
         var currentEntry = selection.filter(function (s) { return s.id === c.id; })[0];
         if (currentEntry) {
-          currentEntry.topic = allotted;
+          currentEntry.topic = sheetTopicNote;
           currentEntry.allotted = true;
         }
         bodyInner =
@@ -1938,9 +1927,16 @@
             '<span class="allotted-topic__badge">' + icon('#i-star') +
               '<span>' + escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप') + '</span></span>' +
             '<p class="allotted-topic__prompt">' +
-              escapeHtml(UI.randomAllotmentPrompt || 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:') + '</p>' +
-            '<p class="allotted-topic__value" data-allotted-topic-value="' + c.id + '">' +
-              escapeHtml(allotted) + '</p>' +
+              escapeHtml(UI.randomAllotmentPrompt ||
+                'दिलेल्या ४ विषयांपैकी कोणताही १ विषय प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने (Randomly) दिला जाईल:') + '</p>' +
+            '<ul class="allotted-topic__list" data-balwadi-topics-list="' + c.id + '">' +
+              balwadiStatus.topics.map(function (t, ti) {
+                return '<li class="allotted-topic__item">' +
+                  '<span class="allotted-topic__num">' + toMarathi(ti + 1) + '</span>' +
+                  '<span>' + escapeHtml(t) + '</span>' +
+                '</li>';
+              }).join('') +
+            '</ul>' +
             '<p class="allotted-topic__hint">' +
               escapeHtml(UI.randomAllotmentHint || '') + '</p>' +
           '</div>' +
@@ -2054,7 +2050,7 @@
           var stdIdx = (stdEl && stdEl.value !== '') ? Number(stdEl.value) : null;
           var isBalwadiNow = (stdIdx != null && isBalwadiStandard(stdIdx));
           var bStatus = (isBalwadiNow && c) ? balwadiTopicStatus(c) : { applicable: false, valid: true };
-          var initialTopic = (bStatus.applicable && bStatus.valid) ? getOrCreateBalwadiTopic(c) : '';
+          var initialTopic = (bStatus.applicable && bStatus.valid) ? balwadiSheetTopicNote(c) : '';
 
           if (!selection.some(function (s) { return s.id === id; })) {
             selection.push({
@@ -2200,7 +2196,7 @@
 
     var isBalwadi = (standardIndex != null && isBalwadiStandard(standardIndex));
     var bStatus = isBalwadi ? balwadiTopicStatus(c) : { applicable: false, valid: true };
-    var initialTopic = (bStatus.applicable && bStatus.valid) ? getOrCreateBalwadiTopic(c) : '';
+    var initialTopic = (bStatus.applicable && bStatus.valid) ? balwadiSheetTopicNote(c) : '';
 
     selection.push({
       id: c.id,
@@ -2224,7 +2220,7 @@
           ? 'आपला गट: <strong>' + escapeHtml(groupDisplay(c, group)) + '</strong>. ' +
             (bStatus.applicable
               ? (bStatus.valid
-                ? 'आपल्याला स्पर्धेसाठी विषयाचे यादृच्छिक वाटप करण्यात आले आहे.'
+                ? 'दिलेल्या ४ विषयांपैकी कोणताही १ विषय प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने दिला जाईल.'
                 : escapeHtml(bStatus.message))
               : (group.topics && group.topics.length ? 'कृपया विषय निवडा.' : 'कृपया संघाची माहिती भरा.'))
           : 'पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong> — या स्पर्धेत स्वतंत्र गट किंवा विषय नाहीत.') +
@@ -2301,11 +2297,8 @@
         if (!bStatus.valid) {
           errors.push(setError(qs('#err-topic-' + entry.id), bStatus.message));
         } else {
-          entry.topic = getOrCreateBalwadiTopic(c);
+          entry.topic = balwadiSheetTopicNote(c);
           entry.allotted = true;
-          if (!entry.topic || bStatus.topics.indexOf(entry.topic) === -1) {
-            errors.push(setError(qs('#err-topic-' + entry.id), 'विषयाचे यादृच्छिक वाटप पूर्ण होऊ शकले नाही.'));
-          }
         }
       } else if (group && group.topics && group.topics.length && !entry.topic) {
         errors.push(setError(qs('#err-topic-' + entry.id), 'कृपया या स्पर्धेसाठी विषय निवडा.'));
@@ -2550,7 +2543,6 @@
         }
 
         showSuccess(payload, data);
-        balwadiAllotments = {};
         form.hidden = true;
         form.reset();
         resetSelectionUI();
@@ -2608,9 +2600,8 @@
           } else if (r.topic) {
             if (payload.standard === 'बालवाडी') {
               line = escapeHtml(r.group) + ' · ' +
-                escapeHtml(UI.randomAllotmentPrompt || 'आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:') +
-                ' <strong>' + escapeHtml(r.topic) + '</strong> (' +
-                escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप') + ')';
+                escapeHtml(UI.randomAllotmentLabel || 'विषयाचे यादृच्छिक वाटप') +
+                ': <strong>' + escapeHtml(r.topic) + '</strong>';
             } else {
               line = escapeHtml(r.group) + ' — ' + escapeHtml(r.topic);
             }

@@ -612,11 +612,11 @@ member list, no member count) — column 18 always records **नोंदणी 
   registration deadlines are never derived from video-submission deadlines. Closed
   competitions are blocked in both the frontend UI and `Code.gs`.
 * **Balwadi random subject allotment (`विषयाचे यादृच्छिक वाटप`):** When **बालवाडी** is
-  selected, manual subject selection is removed and one subject is randomly allotted with
-  equal 1/4 probability from that competition's 4 existing Balwadi topics once per
-  registration entry, with authoritative server-side random assignment and allowed-topic
-  validation in `Code.gs` (stored in the `विषय` column). Class 1 (`इयत्ता १ ली`) onwards
-  keeps manual subject selection unchanged.
+  selected, manual subject selection is removed — all 4 existing Balwadi topics are shown
+  as read-only reference items and participants are informed that **any one of the 4 listed
+  topics will be randomly given during the actual competition** (`प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय`,
+  recorded in the `विषय` column by `Code.gs`). Class 1 (`इयत्ता १ ली`) onwards keeps manual
+  subject selection unchanged.
 * Team entries require the **संघाचे नाव (Group Name)** and at least five participants.
 * Marathi inline errors, an error summary, focus management, a terms checkbox and a हमीपत्र
   confirmation.
@@ -734,12 +734,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v10`, `data.js?v10` and `site.js?v10`. Browsers
+Every page loads its assets as `style.css?v11`, `data.js?v11` and `site.js?v11`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v10/?v11/g' *.html
+sed -i 's/?v11/?v12/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

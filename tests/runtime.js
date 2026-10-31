@@ -654,33 +654,22 @@ function stubFetch(win, response) {
   }
 
   /* =======================================================================
-     6. BALWADI RANDOM SUBJECT ALLOTMENT & CLASS 1+ MANUAL SELECTION
+     6. BALWADI COMPETITION-DAY RANDOM ALLOTMENT & CLASS 1+ MANUAL SELECTION
      ===================================================================== */
-  console.log('\n[6/7] Balwadi random subject allotment & Class 1+ manual selection...');
+  console.log('\n[6/7] Balwadi competition-day random allotment & Class 1+ manual selection...');
   {
     const allowedBalwadi = ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे'];
+    const expectedSheetNote =
+      'प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय (गणपती / कृष्ण / कार / रंगीत फुलपाखरे)';
+
     const { dom, window, document } = await boot('registration.html', '', (w) => {
       w.__FESTIVAL_NOW = '2026-11-15T10:00:00+05:30';
     });
     const H = window.__FESTIVAL_HELPERS;
     const chitraComp = window.FESTIVAL.competitions.find(c => c.id === 'chitrakala');
+    check(H.balwadiSheetTopicNote(chitraComp) === expectedSheetNote,
+      'Frontend balwadiSheetTopicNote lists all 4 written topics for competition-day random allotment');
 
-    /* Verify uniform 1/4 distribution across 1,200 independent entries */
-    const counts = { 'गणपती': 0, 'कृष्ण': 0, 'कार': 0, 'रंगीत फुलपाखरे': 0 };
-    let allValid = true;
-    for (let i = 0; i < 1200; i++) {
-      H.resetBalwadiAllotments();
-      const t = H.getOrCreateBalwadiTopic(chitraComp);
-      if (!allowedBalwadi.includes(t)) allValid = false;
-      else counts[t]++;
-    }
-    check(allValid, 'All 1,200 Balwadi random allotments pick exclusively from the 4 existing topics');
-    check(allowedBalwadi.every(t => counts[t] >= 210 && counts[t] <= 390),
-      'Balwadi random allotment distributes with equal 1/4 probability across all 4 topics (' +
-      JSON.stringify(counts) + ')');
-
-    /* Reset once and test UI flow for बालवाडी (index 0) */
-    H.resetBalwadiAllotments();
     document.getElementById('studentName').value = 'स्वरा संदीप कुलकर्णी';
     document.getElementById('schoolName').value = 'शिरवळ बालवाडी';
     document.getElementById('city').value = 'शिरवळ';
@@ -693,7 +682,7 @@ function stubFetch(win, response) {
     std.dispatchEvent(new window.Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 60));
 
-    /* Balwadi hides manual subject dropdown and shows random allotment box */
+    /* Balwadi hides manual subject dropdown and shows all 4 written topics as read-only reference */
     check(document.querySelector('[data-topic-select="chitrakala"]') === null,
       'Balwadi hides manual subject-selection dropdown');
     const chitraBox = document.querySelector('[data-comp-checkbox="chitrakala"]');
@@ -701,21 +690,18 @@ function stubFetch(win, response) {
     await new Promise(r => setTimeout(r, 40));
 
     const allotCard = document.querySelector('[data-allotted-topic="chitrakala"]');
-    const allotVal = text(document.querySelector('[data-allotted-topic-value="chitrakala"]'));
-    check(!!allotCard && /आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:/.test(text(allotCard)),
-      'Balwadi registration form displays required Marathi allotment prompt');
+    const topicItems = [...document.querySelectorAll('[data-balwadi-topics-list="chitrakala"] li')]
+      .map(li => text(li).replace(/^[१२३४]\s*/, ''));
+    check(!!allotCard && /प्रत्यक्ष स्पर्धेच्या वेळी यादृच्छिक पद्धतीने/.test(text(allotCard)),
+      'Balwadi registration form explains that 1 of the 4 topics will be randomly given during the actual competition');
     check(/विषयाचे यादृच्छिक वाटप/.test(text(allotCard)),
       'Balwadi registration form displays विषयाचे यादृच्छिक वाटप badge');
-    check(allowedBalwadi.includes(allotVal),
-      'Balwadi allotted subject is one of the 4 existing Balwadi topics (' + allotVal + ')');
+    check(JSON.stringify(topicItems) === JSON.stringify(allowedBalwadi),
+      'Balwadi registration form lists all 4 existing topics (' + topicItems.join(', ') + ') without pre-picking 1');
+    check(document.querySelector('[data-allotted-topic-value="chitrakala"]') === null,
+      'Balwadi registration form does not pre-assign a single random topic at registration time');
 
-    /* Stability: unchecking and re-checking, or switching class to इयत्ता १ ली and back, keeps same topic */
-    chitraBox.click(); // uncheck
-    chitraBox.click(); // re-check
-    check(text(document.querySelector('[data-allotted-topic-value="chitrakala"]')) === allotVal,
-      'Toggling Balwadi competition checkbox does not regenerate allotted subject');
-
-    /* Switching to इयत्ता १ ली (index 1) restores manual subject selection and does not leak Balwadi topic */
+    /* Switching to इयत्ता १ ली (index 1) restores manual subject selection and does not leak Balwadi note */
     std.value = '1'; // इयत्ता १ ली
     std.dispatchEvent(new window.Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 60));
@@ -723,16 +709,16 @@ function stubFetch(win, response) {
     check(!!class1Select && class1Select.tagName === 'SELECT',
       'इयत्ता १ ली shows manual subject-selection dropdown');
     check(class1Select.value === '',
-      'Balwadi auto-allotted topic never leaks into इयत्ता १ ली manual dropdown');
+      'Balwadi competition-day note never leaks into इयत्ता १ ली manual dropdown');
     check(document.querySelector('[data-allotted-topic="chitrakala"]') === null,
       'इयत्ता १ ली does not render Balwadi random allotment card');
 
-    /* Switching back to बालवाडी (index 0) restores random allotment with the same cached topic */
+    /* Switching back to बालवाडी (index 0) restores the 4-topic competition-day allotment card */
     std.value = '0';
     std.dispatchEvent(new window.Event('change', { bubbles: true }));
     await new Promise(r => setTimeout(r, 60));
-    check(text(document.querySelector('[data-allotted-topic-value="chitrakala"]')) === allotVal,
-      'Returning to बालवाडी within the same registration entry preserves the single allotted topic');
+    check(document.querySelectorAll('[data-balwadi-topics-list="chitrakala"] li').length === 4,
+      'Returning to बालवाडी restores the 4 listed topics cleanly');
 
     /* Also add an eligible Balwadi team competition (समूह नृत्य) to verify team + Balwadi coexistence */
     const danceBox = document.querySelector('[data-comp-checkbox="group-dance"]');
@@ -747,12 +733,10 @@ function stubFetch(win, response) {
       'अन्वी कदम — बालवाडी'
     ].join('\n');
 
-    /* Backend returns authoritative server-allotted topic */
-    const serverTopic = 'रंगीत फुलपाखरे';
     const calls = stubFetch(window, {
       result: 'success',
       reference: 'BSF26-BALWADI-1',
-      allottedTopics: { chitrakala: serverTopic }
+      allottedTopics: { chitrakala: expectedSheetNote }
     });
     document.getElementById('registrationForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 120));
@@ -761,13 +745,14 @@ function stubFetch(win, response) {
     check(calls[0].body.standard === 'बालवाडी', 'Balwadi payload standard is बालवाडी');
     const sentChitra = calls[0].body.registrations.find(r => r.competitionId === 'chitrakala');
     const sentDance = calls[0].body.registrations.find(r => r.competitionId === 'group-dance');
-    check(sentChitra && sentChitra.topic === allotVal, 'Balwadi payload carries allotted topic');
+    check(sentChitra && sentChitra.topic === expectedSheetNote,
+      'Balwadi payload records competition-day 1-of-4 random allotment note');
     check(sentDance && sentDance.team && sentDance.team.members.length === 5,
       'Balwadi team registration preserves 5-member team structure');
 
     const summaryText = text(document.getElementById('successSummary'));
-    check(/आपल्याला स्पर्धेसाठी खालील विषय देण्यात आला आहे:\s*रंगीत फुलपाखरे/.test(summaryText),
-      'Confirmation screen prominently displays the authoritative server-allotted Balwadi subject');
+    check(/प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय/.test(summaryText),
+      'Confirmation screen clearly states that 1 of the 4 topics will be randomly given during the actual competition');
     check(!/वय/.test(summaryText), 'Balwadi confirmation summary contains no age wording');
     dom.window.close();
   }
@@ -973,12 +958,14 @@ function stubFetch(win, response) {
         'Code.gs accepts multi-competition registration for open competitions (मेहंदी + रील स्टार) on 22 Nov');
     }
 
-    /* 7b. Backend Balwadi random allotment & manipulation protection */
+    /* 7b. Backend Balwadi competition-day random allotment & manipulation protection */
     {
       const gas = createGasHarness('2026-11-15T10:00:00+05:30');
       const allowed = ['गणपती', 'कृष्ण', 'कार', 'रंगीत फुलपाखरे'];
+      const expectedSheetNote =
+        'प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय (गणपती / कृष्ण / कार / रंगीत फुलपाखरे)';
 
-      /* Reject invalid/tampered Balwadi topic */
+      /* Reject tampered arbitrary topic OR manual attempt to pre-pick one of the 4 topics */
       const tamperedRes = gas.post(basePayload({
         requestId: 'BSF26-BAL-TAMPER',
         standard: 'बालवाडी',
@@ -991,20 +978,34 @@ function stubFetch(win, response) {
           status: 'registered'
         }]
       }));
-      check(tamperedRes.result === 'error' && /अवैध विषय/.test(tamperedRes.message),
+      check(tamperedRes.result === 'error' && /प्रत्यक्ष स्पर्धेच्या वेळी/.test(tamperedRes.message),
         'Code.gs rejects tampered/invalid Balwadi subject');
 
-      /* Authoritative server-side random assignment distributes across all 4 topics
-         even if a client repeatedly tries to submit only "गणपती" */
+      const manualPickAttemptRes = gas.post(basePayload({
+        requestId: 'BSF26-BAL-MANUAL-PICK',
+        standard: 'बालवाडी',
+        registrations: [{
+          competitionId: 'chitrakala',
+          competition: 'चित्रकला स्पर्धा',
+          mode: 'offline',
+          group: 'गट १ — बालवाडी ते इयत्ता १ ली',
+          topic: 'गणपती',
+          status: 'registered'
+        }]
+      }));
+      check(manualPickAttemptRes.result === 'error' && /विषय निवडता येत नाही/.test(manualPickAttemptRes.message),
+        'Code.gs rejects Balwadi payload attempting to manually pre-select one of the 4 topics');
+
+      /* Competition-day helper drawRandomBalwadiTopic_ distributes uniformly across all 4 topics */
       const serverCounts = { 'गणपती': 0, 'कृष्ण': 0, 'कार': 0, 'रंगीत फुलपाखरे': 0 };
       let serverAllValid = true;
       for (let i = 0; i < 400; i++) {
-        const picked = gas.sandbox.allotBalwadiTopic_('chitrakala');
+        const picked = gas.sandbox.drawRandomBalwadiTopic_('chitrakala');
         if (!allowed.includes(picked)) serverAllValid = false;
         else serverCounts[picked]++;
       }
       check(serverAllValid && allowed.every(t => serverCounts[t] >= 60 && serverCounts[t] <= 145),
-        'Code.gs allotBalwadiTopic_ assigns uniformly across all 4 allowed topics (' +
+        'Code.gs drawRandomBalwadiTopic_ draws uniformly across all 4 listed topics (' +
         JSON.stringify(serverCounts) + ')');
 
       const balRes = gas.post(basePayload({
@@ -1019,11 +1020,11 @@ function stubFetch(win, response) {
           status: 'registered'
         }]
       }));
-      check(balRes.result === 'success' && balRes.allottedTopics && allowed.includes(balRes.allottedTopics.chitrakala),
-        'Code.gs assigns a valid Balwadi topic on the server and returns it in allottedTopics');
+      check(balRes.result === 'success' && balRes.allottedTopics && balRes.allottedTopics.chitrakala === expectedSheetNote,
+        'Code.gs records competition-day 1-of-4 random topic note for Balwadi');
       const writtenRow = gas.sheets['चित्रकला'].rows[1];
-      check(writtenRow[13] === balRes.allottedTopics.chitrakala,
-        'Code.gs records the final allotted Balwadi subject in Google Sheets column 14 (विषय)');
+      check(writtenRow[13] === expectedSheetNote,
+        'Code.gs writes competition-day random topic note in Google Sheets column 14 (विषय)');
 
       /* Duplicate requestId delivery is ignored */
       const dupRes = gas.post(basePayload({
