@@ -386,6 +386,8 @@ const codeGs = fs.readFileSync(path.join(ROOT, 'Code.gs'), 'utf8');
 
 assert(codeGs.includes('var SPREADSHEET_ID ='), 'Code.gs defines SPREADSHEET_ID setting');
 assert(codeGs.includes("'PUT_YOUR_SPREADSHEET_ID_HERE'"), 'SPREADSHEET_ID has safe placeholder');
+assert((codeGs.match(/PUT_YOUR_SPREADSHEET_ID_HERE/g) || []).length === 1,
+  'Placeholder string appears only once in Code.gs so Find & Replace All cannot break doPost');
 assert(codeGs.includes("TIME_ZONE = 'Asia/Kolkata'"), 'Code.gs timezone set to Asia/Kolkata');
 assert(codeGs.includes('var TABS = {'), 'Code.gs defines TABS mapping');
 
@@ -597,9 +599,13 @@ const repoImages = fs.readdirSync(ROOT)
   .filter(f => imageExt.test(f) && fs.statSync(path.join(ROOT, f)).isFile())
   .sort();
 
-/* logo-left.png is the अध्यक्ष portrait: it belongs to the hero, not the gallery */
+/* logo-left.png is the अध्यक्ष portrait and logo1.jpeg / logo2.jpeg are
+   co-sponsor logos: they belong to their dedicated sections, not the gallery */
+const nonGalleryLogos = ['logo-left.png', 'logo1.jpeg', 'logo2.jpeg'];
 assert(repoImages.includes('logo-left.png'), 'Repository still contains logo-left.png');
-const galleryImages = repoImages.filter(f => f !== 'logo-left.png');
+assert(repoImages.includes('logo1.jpeg') && repoImages.includes('logo2.jpeg'),
+  'Repository contains co-sponsor logos logo1.jpeg and logo2.jpeg');
+const galleryImages = repoImages.filter(f => !nonGalleryLogos.includes(f));
 assert(galleryImages.length >= 50, `Repository contains ${galleryImages.length} gallery photographs`);
 galleryImages.forEach(file => {
   const inManifest = DATA.gallery.images.some(i => i.src === file);
@@ -613,6 +619,8 @@ DATA.gallery.images.forEach(entry => {
 const manifestSrcs = DATA.gallery.images.map(i => i.src);
 assert(new Set(manifestSrcs).size === manifestSrcs.length, 'Manifest lists no duplicate filenames');
 assert(!manifestSrcs.includes('logo-left.png'), 'Organiser portrait logo-left.png is NOT a carousel slide');
+assert(!manifestSrcs.includes('logo1.jpeg') && !manifestSrcs.includes('logo2.jpeg'),
+  'Co-sponsor logos logo1.jpeg and logo2.jpeg are NOT carousel slides');
 assert(DATA.gallery.images.length === galleryImages.length, 'Manifest length equals the gallery photographs in the repo');
 assert(manifestSrcs.some(f => f.startsWith('WhatsApp Image ')), 'WhatsApp Image uploads are in the carousel');
 assert(manifestSrcs.includes('1.jpeg') && manifestSrcs.includes('13.jpeg'), 'Numbered photos 1.jpeg…13.jpeg are in the carousel');
@@ -747,15 +755,37 @@ assert(DATA.competitions.filter(c => c.mode === 'offline').length === 6, 'All si
    ========================================================================== */
 console.log('\n[10/10] Certificate, per-competition deadlines & Balwadi random allotment...');
 
-/* 10a. Cache-busting bumped consistently to ?v11 across all 12 HTML pages */
+/* 10a. Cache-busting bumped consistently to ?v12 across all 12 HTML pages */
 const htmlFilesList = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'));
 assert(htmlFilesList.length === 12, 'All 12 HTML pages are present');
 htmlFilesList.forEach(file => {
   const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  assert(!html.includes('?v9') && !html.includes('?v10'), `${file} has no stale ?v9/?v10 asset query`);
-  assert(html.includes('style.css?v11') && html.includes('data.js?v11') && html.includes('site.js?v11'),
-    `${file} loads style.css?v11, data.js?v11, and site.js?v11`);
+  assert(!html.includes('?v9') && !html.includes('?v10') && !html.includes('?v11'),
+    `${file} has no stale ?v9/?v10/?v11 asset query`);
+  assert(html.includes('style.css?v12') && html.includes('data.js?v12') && html.includes('site.js?v12'),
+    `${file} loads style.css?v12, data.js?v12, and site.js?v12`);
 });
+
+/* 10a-2. Co-sponsor strip below section ३ on registration.html */
+const coSponsorsSection = regDoc.getElementById('coSponsors');
+assert(coSponsorsSection !== null, 'registration.html contains #coSponsors section');
+const coSponsorHeading = regDoc.getElementById('coSponsorsHeading');
+assert(coSponsorHeading && coSponsorHeading.textContent.trim() === 'सह-प्रायोजक',
+  'Co-sponsors section is titled सह-प्रायोजक');
+const coSponsorImgs = [...regDoc.querySelectorAll('#coSponsors .co-sponsors__img')];
+assert(coSponsorImgs.length === 2, 'Co-sponsors section displays 2 logo images');
+assert(
+  coSponsorImgs[0].getAttribute('src') === 'logo1.jpeg' &&
+  coSponsorImgs[1].getAttribute('src') === 'logo2.jpeg',
+  'Co-sponsors section renders logo1.jpeg and logo2.jpeg in order'
+);
+const tncIdx = regHtml.indexOf('हे मी समजून घेतले आहे.');
+const coSponsorsIdx = regHtml.indexOf('id="coSponsors"');
+const submitBtnIdx = regHtml.indexOf('id="submitBtn"');
+assert(tncIdx !== -1 && coSponsorsIdx > tncIdx && coSponsorsIdx < submitBtnIdx,
+  'Co-sponsors section is placed directly below ३ नियम व अटी आणि हमीपत्र and above submit actions');
+assert(styleCss.includes('.co-sponsors{') && !/\.co-sponsors[^{]*\{[^}]*letter-spacing\s*:\s*[1-9]/.test(styleCss),
+  'Co-sponsors styles exist and use no positive letter-spacing on Devanagari text');
 
 /* 10b. Certificate of Participation policy & terminology */
 assert(DATA.ui.certificateLabel === 'सहभाग प्रमाणपत्र', 'UI defines सहभाग प्रमाणपत्र label');

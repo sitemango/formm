@@ -127,11 +127,11 @@ function doPost(e) {
     var problem = validate_(payload, now);
     if (problem) return out_({ result: 'error', message: problem });
 
-    if (SPREADSHEET_ID === 'PUT_YOUR_SPREADSHEET_ID_HERE' || !SPREADSHEET_ID) {
+    var ss = openSpreadsheet_();
+    if (!ss) {
       return out_({ result: 'error', message: 'नोंदणी साठवणे सुरू झाले नाही. कृपया आयोजकांशी संपर्क करा.' });
     }
 
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var saved = [];
     var allottedTopics = {};
     var stamp = formatStampIST_(now);
@@ -444,6 +444,39 @@ function tabFromName_(name) {
 
 /* -------------------------------------------------------------------- sheets */
 
+function isPlaceholderSpreadsheetId_(value) {
+  var s = String(value || '').trim();
+  return !s || s.indexOf('PUT_YOUR_') === 0 || s.indexOf('_HERE') !== -1;
+}
+
+/* Resolve target spreadsheet in priority order:
+   1. Explicit SPREADSHEET_ID constant in Code.gs (when replaced from placeholder)
+   2. Script Properties key "SPREADSHEET_ID" (survives copy-pasting Code.gs updates)
+   3. Bound spreadsheet via SpreadsheetApp.getActiveSpreadsheet() (works out of
+      the box when Apps Script was created via Google Sheets → Extensions → Apps Script) */
+function openSpreadsheet_() {
+  var id = !isPlaceholderSpreadsheetId_(SPREADSHEET_ID)
+    ? String(SPREADSHEET_ID).trim()
+    : '';
+  if (!id && typeof PropertiesService !== 'undefined' && PropertiesService &&
+      typeof PropertiesService.getScriptProperties === 'function') {
+    try {
+      var propId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+      if (!isPlaceholderSpreadsheetId_(propId)) id = String(propId).trim();
+    } catch (e) { /* ignore if unavailable */ }
+  }
+  if (id) return SpreadsheetApp.openById(id);
+
+  if (typeof SpreadsheetApp !== 'undefined' && SpreadsheetApp &&
+      typeof SpreadsheetApp.getActiveSpreadsheet === 'function') {
+    try {
+      var active = SpreadsheetApp.getActiveSpreadsheet();
+      if (active) return active;
+    } catch (e) { /* ignore and return null */ }
+  }
+  return null;
+}
+
 function getOrCreateSheet_(ss, name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
@@ -472,10 +505,10 @@ function referenceExists_(sheet, reference) {
 
 /* Run this once from the Apps Script editor to create all ten tabs. */
 function setupSheets() {
-  if (SPREADSHEET_ID === 'PUT_YOUR_SPREADSHEET_ID_HERE' || !SPREADSHEET_ID) {
-    throw new Error('SPREADSHEET_ID is still a placeholder — paste your spreadsheet id first.');
+  var ss = openSpreadsheet_();
+  if (!ss) {
+    throw new Error('SPREADSHEET_ID is still a placeholder and no bound Google Sheet was found — paste your spreadsheet id first.');
   }
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var created = [];
   Object.keys(TABS).forEach(function (id) {
     var sheet = ss.getSheetByName(TABS[id]);

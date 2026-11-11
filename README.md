@@ -734,12 +734,12 @@ site, not build artefacts.
 
 ### Cache-busting — bump `?v=` after a content change
 
-Every page loads its assets as `style.css?v11`, `data.js?v11` and `site.js?v11`. Browsers
+Every page loads its assets as `style.css?v12`, `data.js?v12` and `site.js?v12`. Browsers
 cache those files, so after you edit `data.js` (a new date, a new topic, a new competition)
 raise the number in all twelve HTML files:
 
 ```bash
-sed -i 's/?v11/?v12/g' *.html
+sed -i 's/?v12/?v13/g' *.html
 ```
 
 Visitors then get the new content immediately instead of the copy their browser saved.

@@ -113,11 +113,13 @@ function stubFetch(win, response) {
     /* every committed gallery photograph is present, in manifest order; the
        अध्यक्ष portrait (logo-left.png) belongs to the hero, never to the gallery */
     const srcs = slides.map(s => s.querySelector('.carousel__img').getAttribute('src'));
+    const nonGalleryLogos = ['logo-left.png', 'logo1.jpeg', 'logo2.jpeg'];
     const repoImages = fs.readdirSync(ROOT)
       .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile()
-        && f !== 'logo-left.png');
+        && !nonGalleryLogos.includes(f));
     check(repoImages.every(f => srcs.includes(f)), 'No repository photograph is missing from the carousel');
-    check(!srcs.includes('logo-left.png'), 'The अध्यक्ष portrait is not a carousel slide');
+    check(!srcs.includes('logo-left.png') && !srcs.includes('logo1.jpeg') && !srcs.includes('logo2.jpeg'),
+      'Organiser portrait and co-sponsor logos are not carousel slides');
     check(srcs[0] === manifest[0].src && srcs[srcs.length - 1] === manifest[manifest.length - 1].src,
       'First and last manifest images are the first and last slides');
 
@@ -502,6 +504,14 @@ function stubFetch(win, response) {
       'Registration form footer note announces Certificate of Participation');
     check(/प्रत्येक सहभागी विद्यार्थ्याला सहभाग प्रमाणपत्र/.test(text(document.querySelector('#successCard .cert-callout'))),
       'Registration confirmation card includes Certificate of Participation notice');
+    const coSponsors = document.getElementById('coSponsors');
+    check(!!coSponsors && coSponsors.hidden === false &&
+      text(document.getElementById('coSponsorsHeading')) === 'सह-प्रायोजक',
+      'Registration page renders visible सह-प्रायोजक section');
+    const coImgs = [...document.querySelectorAll('#coSponsors .co-sponsors__img')];
+    check(coImgs.length === 2 && coImgs[0].getAttribute('src') === 'logo1.jpeg' &&
+      coImgs[1].getAttribute('src') === 'logo2.jpeg',
+      'Registration page सह-प्रायोजक section displays logo1.jpeg and logo2.jpeg');
     dom.window.close();
   }
 
@@ -1041,6 +1051,24 @@ function stubFetch(win, response) {
       }));
       check(dupRes.result === 'error' && gas.sheets['चित्रकला'].rows.length === 2,
         'Code.gs duplicate protection prevents writing a second row for the same requestId');
+    }
+
+    /* 7c. Spreadsheet resolution fallbacks prevent placeholder overwrite failures */
+    {
+      const gas = createGasHarness('2026-11-15T10:00:00+05:30');
+      gas.sandbox.SPREADSHEET_ID = 'PUT_YOUR_SPREADSHEET_ID_HERE';
+
+      /* Standalone script with placeholder and no Script Properties returns setup error */
+      gas.sandbox.SpreadsheetApp.getActiveSpreadsheet = () => null;
+      const missingRes = gas.post(basePayload({ requestId: 'BSF26-NO-SHEET' }));
+      check(missingRes.result === 'error' && /नोंदणी साठवणे सुरू झाले नाही/.test(missingRes.message),
+        'Code.gs returns setup error only when SPREADSHEET_ID, Script Properties, and getActiveSpreadsheet are all unset');
+
+      /* Container-bound script (Extensions → Apps Script) works even with placeholder SPREADSHEET_ID */
+      gas.sandbox.SpreadsheetApp.getActiveSpreadsheet = () => gas.sandbox.SpreadsheetApp.openById('BOUND');
+      const boundRes = gas.post(basePayload({ requestId: 'BSF26-BOUND-SHEET' }));
+      check(boundRes.result === 'success' && boundRes.saved === 1,
+        'Code.gs automatically uses bound Google Sheet via getActiveSpreadsheet() when SPREADSHEET_ID is left as placeholder');
     }
   }
 
