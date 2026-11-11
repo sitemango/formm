@@ -1825,6 +1825,18 @@
         }
       });
     }
+
+    var sponsorHost = qs('#coSponsors');
+    if (sponsorHost) {
+      qsa('.co-sponsors__img', sponsorHost).forEach(function (img) {
+        img.addEventListener('error', function () {
+          var item = img.closest('.co-sponsors__item');
+          if (item) item.hidden = true;
+          var visible = qsa('.co-sponsors__item:not([hidden])', sponsorHost);
+          if (!visible.length) sponsorHost.hidden = true;
+        });
+      });
+    }
   }
 
   function resetSelectionUI() {
