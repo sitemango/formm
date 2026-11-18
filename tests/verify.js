@@ -754,15 +754,15 @@ assert(DATA.competitions.filter(c => c.mode === 'offline').length === 6, 'All si
    ========================================================================== */
 console.log('\n[10/10] Certificate, per-competition deadlines & Balwadi random allotment...');
 
-/* 10a. Cache-busting bumped consistently to ?v12 across all 12 HTML pages */
+/* 10a. Cache-busting for shared assets and the updated registration stylesheet */
 const htmlFilesList = fs.readdirSync(ROOT).filter(f => f.endsWith('.html'));
 assert(htmlFilesList.length === 12, 'All 12 HTML pages are present');
 htmlFilesList.forEach(file => {
   const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
   assert(!html.includes('?v9') && !html.includes('?v10') && !html.includes('?v11'),
     `${file} has no stale ?v9/?v10/?v11 asset query`);
-  assert(html.includes('style.css?v12') && html.includes('data.js?v12') && html.includes('site.js?v12'),
-    `${file} loads style.css?v12, data.js?v12, and site.js?v12`);
+  assert(html.includes(file === 'registration.html' ? 'style.css?v13' : 'style.css?v12') && html.includes('data.js?v12') && html.includes('site.js?v12'),
+    `${file} loads the expected versioned assets`);
 });
 
 /* 10a-2. Co-sponsor strip below section ३ on registration.html */
@@ -773,6 +773,9 @@ assert(coSponsorHeading && coSponsorHeading.textContent.trim() === 'सह-प�
   'Co-sponsors section is titled सह-प्रायोजक');
 const coSponsorImgs = [...regDoc.querySelectorAll('#coSponsors .co-sponsors__img')];
 assert(coSponsorImgs.length === 3, 'Co-sponsors section displays 3 logo images');
+assert(coSponsorImgs[0].classList.contains('co-sponsors__img--circle') &&
+  /\.co-sponsors__img--circle\s*\{[^}]*object-fit\s*:\s*cover[^}]*object-position\s*:\s*center[^}]*border-radius\s*:\s*50%/s.test(styleCss),
+  'Azaad Cinema logo is cropped to a centered circle');
 assert(
   coSponsorImgs[0].getAttribute('src') === 'azaad-cinema.jpeg' &&
   coSponsorImgs[1].getAttribute('src') === 'logo1.jpeg?v=2' &&
