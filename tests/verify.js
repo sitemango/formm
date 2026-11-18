@@ -599,12 +599,11 @@ const repoImages = fs.readdirSync(ROOT)
   .filter(f => imageExt.test(f) && fs.statSync(path.join(ROOT, f)).isFile())
   .sort();
 
-/* logo-left.png is the अध्यक्ष portrait and logo1.jpeg / logo2.jpeg are
-   co-sponsor logos: they belong to their dedicated sections, not the gallery */
-const nonGalleryLogos = ['logo-left.png', 'logo1.jpeg', 'logo2.jpeg'];
+/* The अध्यक्ष portrait and co-sponsor logos belong to their dedicated sections, not the gallery. */
+const nonGalleryLogos = ['logo-left.png', 'azaad-cinema.jpeg', 'logo1.jpeg', 'logo2.jpeg'];
 assert(repoImages.includes('logo-left.png'), 'Repository still contains logo-left.png');
-assert(repoImages.includes('logo1.jpeg') && repoImages.includes('logo2.jpeg'),
-  'Repository contains co-sponsor logos logo1.jpeg and logo2.jpeg');
+assert(['azaad-cinema.jpeg', 'logo1.jpeg', 'logo2.jpeg'].every(f => repoImages.includes(f)),
+  'Repository contains all three co-sponsor logos');
 const galleryImages = repoImages.filter(f => !nonGalleryLogos.includes(f));
 assert(galleryImages.length >= 50, `Repository contains ${galleryImages.length} gallery photographs`);
 galleryImages.forEach(file => {
@@ -619,8 +618,8 @@ DATA.gallery.images.forEach(entry => {
 const manifestSrcs = DATA.gallery.images.map(i => i.src);
 assert(new Set(manifestSrcs).size === manifestSrcs.length, 'Manifest lists no duplicate filenames');
 assert(!manifestSrcs.includes('logo-left.png'), 'Organiser portrait logo-left.png is NOT a carousel slide');
-assert(!manifestSrcs.includes('logo1.jpeg') && !manifestSrcs.includes('logo2.jpeg'),
-  'Co-sponsor logos logo1.jpeg and logo2.jpeg are NOT carousel slides');
+assert(!manifestSrcs.includes('azaad-cinema.jpeg') && !manifestSrcs.includes('logo1.jpeg') && !manifestSrcs.includes('logo2.jpeg'),
+  'Co-sponsor logos are NOT carousel slides');
 assert(DATA.gallery.images.length === galleryImages.length, 'Manifest length equals the gallery photographs in the repo');
 assert(manifestSrcs.some(f => f.startsWith('WhatsApp Image ')), 'WhatsApp Image uploads are in the carousel');
 assert(manifestSrcs.includes('1.jpeg') && manifestSrcs.includes('13.jpeg'), 'Numbered photos 1.jpeg…13.jpeg are in the carousel');
@@ -773,11 +772,12 @@ const coSponsorHeading = regDoc.getElementById('coSponsorsHeading');
 assert(coSponsorHeading && coSponsorHeading.textContent.trim() === 'सह-प्रायोजक',
   'Co-sponsors section is titled सह-प्रायोजक');
 const coSponsorImgs = [...regDoc.querySelectorAll('#coSponsors .co-sponsors__img')];
-assert(coSponsorImgs.length === 2, 'Co-sponsors section displays 2 logo images');
+assert(coSponsorImgs.length === 3, 'Co-sponsors section displays 3 logo images');
 assert(
-  coSponsorImgs[0].getAttribute('src') === 'logo1.jpeg' &&
-  coSponsorImgs[1].getAttribute('src') === 'logo2.jpeg',
-  'Co-sponsors section renders logo1.jpeg and logo2.jpeg in order'
+  coSponsorImgs[0].getAttribute('src') === 'azaad-cinema.jpeg' &&
+  coSponsorImgs[1].getAttribute('src') === 'logo1.jpeg?v=2' &&
+  coSponsorImgs[2].getAttribute('src') === 'logo2.jpeg',
+  'Co-sponsors section renders Azaad Cinema, VS Mart and Tamboli logos in order'
 );
 const tncIdx = regHtml.indexOf('हे मी समजून घेतले आहे.');
 const coSponsorsIdx = regHtml.indexOf('id="coSponsors"');
