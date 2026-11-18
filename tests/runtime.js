@@ -113,12 +113,12 @@ function stubFetch(win, response) {
     /* every committed gallery photograph is present, in manifest order; the
        अध्यक्ष portrait (logo-left.png) belongs to the hero, never to the gallery */
     const srcs = slides.map(s => s.querySelector('.carousel__img').getAttribute('src'));
-    const nonGalleryLogos = ['logo-left.png', 'logo1.jpeg', 'logo2.jpeg'];
+    const nonGalleryLogos = ['logo-left.png', 'azaad-cinema.jpeg', 'logo1.jpeg', 'logo2.jpeg'];
     const repoImages = fs.readdirSync(ROOT)
       .filter(f => /\.(jpe?g|png|gif|webp)$/i.test(f) && fs.statSync(path.join(ROOT, f)).isFile()
         && !nonGalleryLogos.includes(f));
     check(repoImages.every(f => srcs.includes(f)), 'No repository photograph is missing from the carousel');
-    check(!srcs.includes('logo-left.png') && !srcs.includes('logo1.jpeg') && !srcs.includes('logo2.jpeg'),
+    check(!srcs.includes('logo-left.png') && !srcs.includes('azaad-cinema.jpeg') && !srcs.includes('logo1.jpeg') && !srcs.includes('logo2.jpeg'),
       'Organiser portrait and co-sponsor logos are not carousel slides');
     check(srcs[0] === manifest[0].src && srcs[srcs.length - 1] === manifest[manifest.length - 1].src,
       'First and last manifest images are the first and last slides');
@@ -509,9 +509,10 @@ function stubFetch(win, response) {
       text(document.getElementById('coSponsorsHeading')) === 'सह-प्रायोजक',
       'Registration page renders visible सह-प्रायोजक section');
     const coImgs = [...document.querySelectorAll('#coSponsors .co-sponsors__img')];
-    check(coImgs.length === 2 && coImgs[0].getAttribute('src') === 'logo1.jpeg' &&
-      coImgs[1].getAttribute('src') === 'logo2.jpeg',
-      'Registration page सह-प्रायोजक section displays logo1.jpeg and logo2.jpeg');
+    check(coImgs.length === 3 && coImgs[0].getAttribute('src') === 'azaad-cinema.jpeg' &&
+      coImgs[1].getAttribute('src') === 'logo1.jpeg?v=2' &&
+      coImgs[2].getAttribute('src') === 'logo2.jpeg',
+      'Registration page सह-प्रायोजक section displays Azaad Cinema, VS Mart and Tamboli logos');
     dom.window.close();
   }
 
