@@ -4,7 +4,7 @@
    Reads window.FESTIVAL (see data.js) and renders:
 
      • the icon sprite, header + navigation and footer (shared partials)
-     • the homepage (cards, eligibility overview, explorer, FAQ)
+     • the homepage (cards, online competitions, FAQ)
      • each competition page (breadcrumb, intro, groups/topics, CTA, links)
      • the registration page (validation + Google Apps Script submission)
 
@@ -588,7 +588,6 @@
             '<ul>' +
               '<li><a href="index.html">मुख्यपृष्ठ</a></li>' +
               '<li><a href="index.html#competitions">स्पर्धांची माहिती</a></li>' +
-              '<li><a href="index.html#eligibility">इयत्तेनुसार पात्रता</a></li>' +
               '<li><a href="index.html#faq">नेहमी विचारले जाणारे प्रश्न</a></li>' +
               '<li><a href="registration.html">नोंदणी करा</a></li>' +
             '</ul>' +
@@ -747,108 +746,6 @@
     host.innerHTML = C.map(competitionCard).join('');
   }
 
-  function renderEligibilityOverview() {
-    var host = qs('#eligibilityList');
-    if (!host) return;
-
-    host.innerHTML = C.filter(function (c) { return c.eligibility; }).map(function (c) {
-      var chips = hasGroups(c)
-        ? c.groups.map(function (g, gi) {
-            return '<li class="chip chip--soft"><span class="chip__no english-text">G' + (gi + 1) + '</span> ' +
-              escapeHtml(stripGroupPrefix(g.label)) + '</li>';
-          }).join('')
-        : '<li class="chip chip--soft">' + icon('#i-info') + ' स्वतंत्र गट नाहीत</li>' +
-          (c.schedule && c.mode === 'online'
-            ? '<li class="chip chip--soft">' + icon('#i-online') + ' ' +
-              escapeHtml(onlineDeadlineLabel(c)) + ' — ' + escapeHtml(shortDate(deadlineDate(c))) + '</li>'
-            : '');
-      return '' +
-        '<article class="erow reveal" data-accent="' + c.accent + '">' +
-          '<div class="erow__head">' +
-            '<span class="erow__icon">' + icon(c.icon) + '</span>' +
-            '<h3 class="erow__title"><a href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
-              (c.mode === 'online' ? ' <span class="tag tag--online english-text">Online</span>' : '') + '</h3>' +
-            '<p class="erow__range">पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong>' +
-              (c.isTeam ? ' · संघ स्पर्धा' : '') + (c.mode === 'online' ? ' · ऑनलाइन स्पर्धा' : '') + '</p>' +
-          '</div>' +
-          '<ul class="erow__chips">' + chips + '</ul>' +
-        '</article>';
-    }).join('');
-  }
-
-  function renderExplorer() {
-    var select = qs('#explorerStandard');
-    var results = qs('#explorerResults');
-    var hint = qs('#explorerHint');
-    if (!select || !results) return;
-
-    S.forEach(function (label, index) {
-      var option = document.createElement('option');
-      option.value = String(index);
-      option.textContent = label;
-      select.appendChild(option);
-    });
-
-    var empty = function (message) {
-      results.innerHTML = '<p class="explorer__empty">' + escapeHtml(message) + '</p>';
-    };
-
-    select.addEventListener('change', function () {
-      if (select.value === '') {
-        empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.');
-        if (hint) hint.textContent = 'इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.';
-        return;
-      }
-      var index = Number(select.value);
-      if (hint) hint.innerHTML = 'निवडलेली इयत्ता: <strong>' + escapeHtml(standardLabel(index)) + '</strong>';
-
-      var personal = eligibleFor(index).filter(function (c) { return c.mode === 'offline'; });
-      var online = eligibleFor(index).filter(function (c) { return c.mode === 'online'; });
-
-      var list = personal.map(function (c) {
-        var g = groupFor(c, index);
-        var bNote = (isBalwadiStandard(index) && balwadiTopicStatus(c).applicable && balwadiTopicStatus(c).valid)
-          ? ' · प्रत्यक्ष स्पर्धेच्या वेळी ४ विषयांपैकी १ यादृच्छिक विषय'
-          : '';
-        return '' +
-          '<li class="ex-item" data-accent="' + c.accent + '">' +
-            '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
-            '<span class="ex-item__body">' +
-              '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
-              '<span class="ex-item__group">गट: <strong>' + escapeHtml(g ? stripGroupPrefix(g.label) : '—') + '</strong>' +
-                (g && g.note ? ' · ' + escapeHtml(g.note) : '') + bNote + '</span>' +
-            '</span>' +
-            '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
-          '</li>';
-      }).join('');
-
-      var onlineItems = online.map(function (c) {
-        var tg = c.isTeam ? groupFor(c, index) : null;
-        var detail = c.isTeam
-          ? 'गट: <strong>' + escapeHtml(groupDisplay(c, tg)) + '</strong> · संघ स्पर्धा'
-          : 'पात्रता: <strong>' + escapeHtml(eligibilityText(c)) + '</strong> · ऑनलाइन स्पर्धा';
-        return '<li class="ex-item ex-item--online" data-accent="' + c.accent + '">' +
-          '<span class="ex-item__icon">' + icon(c.icon) + '</span>' +
-          '<span class="ex-item__body">' +
-            '<a class="ex-item__name" href="' + c.page + '">' + escapeHtml(c.name) + '</a>' +
-            '<span class="ex-item__group">' + detail + '</span>' +
-          '</span>' +
-          '<span class="ex-item__go">' + icon('#i-arrow') + '</span>' +
-        '</li>';
-      }).join('');
-
-      results.innerHTML =
-        '<div class="ex-group"><p class="ex-group__title">वैयक्तिक स्पर्धा (' +
-          toMarathi(personal.length) +
-          ')</p><ul class="ex-list">' + list + '</ul></div>' +
-        '<div class="ex-group"><p class="ex-group__title">ऑनलाइन स्पर्धा (' +
-          toMarathi(online.length) +
-          ')</p><ul class="ex-list">' + onlineItems + '</ul></div>';
-    });
-
-    empty('इयत्ता निवडल्यानंतर येथे पात्र स्पर्धा व त्यांचे गट (असल्यास) दिसतील.');
-  }
-
   function renderOnlineStrip() {
     var host = qs('#onlineStrip');
     if (!host) return;
@@ -875,60 +772,6 @@
       '</a>';
     }).join('');
     host.innerHTML = items;
-  }
-
-  /* The festival schedule, sorted by date, straight from data.js. */
-  function renderSchedule() {
-    var host = qs('#scheduleList');
-    if (!host) return;
-
-    var head = qs('#scheduleHeading');
-    if (head && UI.scheduleHomeTitle) head.textContent = UI.scheduleHomeTitle;
-    var lede = qs('#scheduleLede');
-    if (lede && UI.scheduleHomeLede) lede.textContent = UI.scheduleHomeLede;
-
-    var rows = C.filter(function (c) { return c.schedule; }).slice().sort(function (a, b) {
-      var d = a.schedule.dateISO.localeCompare(b.schedule.dateISO);
-      if (d !== 0) return d;
-      return Number(a.schedule.order) - Number(b.schedule.order);
-    });
-
-    host.innerHTML = rows.map(function (c) {
-      var sch = c.schedule;
-      var regDeadline = registrationDeadlineISO(c);
-      var closed = isRegistrationClosed(c);
-      var when = sch.kind === 'online'
-        ? '<span class="sched__k">' + escapeHtml(onlineDeadlineLabel(c)) + '</span>' +
-          '<span class="sched__v">' + escapeHtml(deadlineDate(c)) + '</span>'
-        : '<span class="sched__k">' + escapeHtml(UI.dateLabel) + '</span>' +
-          '<span class="sched__v">' + escapeHtml(sch.date) + '</span>';
-      return '' +
-        '<li class="srow reveal" data-accent="' + c.accent + '">' +
-          '<span class="srow__date">' +
-            '<span class="srow__day">' + escapeHtml(shortDate(sch.date).replace(/ २०२६$/, '')) + '</span>' +
-            '<span class="srow__weekday english-text">' + escapeHtml(sch.dateISO) + '</span>' +
-          '</span>' +
-          '<span class="srow__body">' +
-            '<a class="srow__name" href="' + c.page + '">' + escapeHtml(c.name) +
-              (c.nameLatin ? ' <span class="english-text srow__latin">— ' + escapeHtml(c.nameLatin) + '</span>' : '') +
-            '</a>' +
-            '<span class="srow__meta">' + when + '</span>' +
-            (regDeadline
-              ? '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.regDeadlineLabel || 'नोंदणीची अंतिम तारीख') + '</span>' +
-                '<span class="sched__v">' + escapeHtml(registrationDeadlineFullText(c)) +
-                (closed ? ' <strong>(' + escapeHtml(UI.regClosedBadge || 'नोंदणी बंद झाली आहे') + ')</strong>' : '') +
-                '</span></span>'
-              : '') +
-            (sch.kind === 'online'
-              ? '<span class="srow__meta"><span class="sched__k">स्वरूप</span>' +
-                '<span class="sched__v">ऑनलाइन स्पर्धा — प्रत्यक्ष स्थळ किंवा वेळ लागू नाही</span></span>'
-              : '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.timeLabel) + '</span>' +
-                '<span class="sched__v">' + escapeHtml(sch.time) + '</span></span>' +
-                '<span class="srow__meta"><span class="sched__k">' + escapeHtml(UI.venueLabel) + '</span>' +
-                '<span class="sched__v">' + escapeHtml(sch.venue) + '</span></span>') +
-          '</span>' +
-        '</li>';
-    }).join('');
   }
 
   function renderFaq() {
@@ -2657,9 +2500,6 @@
     var page = document.body.getAttribute('data-page');
     if (page === 'home') {
       renderHomeCards();
-      renderSchedule();
-      renderEligibilityOverview();
-      renderExplorer();
       renderOnlineStrip();
       renderFaq();
       renderOrganizerPhoto();

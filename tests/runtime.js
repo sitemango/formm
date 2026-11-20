@@ -6,7 +6,7 @@
 
      • homepage carousel  — every manifest image is a slide, navigation, wrap
                             around, counter, dots, keyboard, deleting bad files
-     • Reel Star          — the page itself, homepage card, schedule, explorer
+     • Reel Star          — the page itself, homepage card
      • registration       — preselect, class eligibility, payload, success card
      • WhatsApp           — every rendered button uses the exact invitation URL
 
@@ -200,31 +200,17 @@ function stubFetch(win, response) {
     check(/२९ नोव्हेंबर २०२६/.test(text(reelCard)), 'Reel Star card shows the 29 November 2026 deadline');
     check(/ऑनलाइन/.test(text(reelCard)), 'Reel Star card is labelled as an online competition');
 
-    const scheduleRows = [...document.querySelectorAll('#scheduleList .srow')];
-    check(scheduleRows.length === 10, `Schedule lists all 10 competitions (${scheduleRows.length})`);
-    const reelRow = scheduleRows.find(r => /रील स्टार/.test(text(r)));
-    check(!!reelRow, 'Schedule includes Reel Star');
-    check(/व्हिडिओ सबमिशनची अंतिम तारीख/.test(text(reelRow)), 'Schedule marks Reel Star as a video-submission deadline');
-    check(/संध्याकाळी ५ वाजता/.test(text(reelRow)), 'Schedule shows the 5 pm Reel Star deadline');
-    check(/२९ नोव्हेंबर २०२६/.test(text(reelRow)), 'Schedule shows २९ नोव्हेंबर २०२६ for Reel Star');
-    check(/प्रत्यक्ष स्थळ किंवा वेळ लागू नाही/.test(text(reelRow)), 'Schedule never implies an in-person Reel Star event');
+    check(!document.getElementById('scheduleList') && !document.getElementById('scheduleHeading'),
+      'Homepage does not repeat the competition schedule');
 
     const onlineCards = [...document.querySelectorAll('#onlineStrip .online-card')];
     check(onlineCards.length === 4, `Online strip lists all 4 online competitions (${onlineCards.length})`);
     check(onlineCards.some(c => /reel-star/.test(c.getAttribute('href'))), 'Online strip includes Reel Star');
 
-    /* explorer filter — ইয়ত্তা based, so only the 5th–10th grades see Reel Star */
-    const explorer = document.getElementById('explorerStandard');
-    explorer.value = '4';
-    explorer.dispatchEvent(new window.Event('change', { bubbles: true }));
-    check(!/reel-star\.html/.test(document.getElementById('explorerResults').innerHTML),
-      'Explorer hides Reel Star from इयत्ता ४ थी');
-    explorer.value = '6';
-    explorer.dispatchEvent(new window.Event('change', { bubbles: true }));
-    check(/reel-star\.html/.test(document.getElementById('explorerResults').innerHTML),
-      'Explorer lists Reel Star for इयत्ता ६ वी');
-    check(/इयत्ता ५ वी ते १० वी/.test(text(document.getElementById('explorerResults'))),
-      'Explorer shows the इयत्ता ५ वी ते १० वी eligibility for Reel Star');
+    check(!document.getElementById('eligibility') && !document.getElementById('explorerStandard'),
+      'Homepage does not repeat the eligibility overview or explorer');
+    check(!document.querySelector('a[href="index.html#eligibility"]'),
+      'Footer does not link to the removed eligibility section');
 
     /* swipe */
     const stage = document.getElementById('carouselStage');
