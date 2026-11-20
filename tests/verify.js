@@ -270,8 +270,10 @@ assert(dance.schedule.deadlineLabel === 'व्हिडिओ पाठवि�
 assert(singing.schedule.time === null && singing.schedule.venue === null, 'समूह गायन has null time & venue');
 assert(fashion.schedule.time === null && fashion.schedule.venue === null, 'समूह फॅशन शो has null time & venue');
 
-assert(siteJs.includes('function renderSchedule()'), 'site.js implements renderSchedule()');
-assert(siteJs.includes('scheduleList'), 'renderSchedule renders #scheduleList container');
+assert(!indexHtml.includes('id="scheduleList"') && !indexHtml.includes('id="scheduleHeading"'),
+  'Homepage does not repeat the competition schedule');
+assert(!indexHtml.includes('id="eligibilityList"') && !indexHtml.includes('id="explorerStandard"') && !siteJs.includes('index.html#eligibility'),
+  'Homepage eligibility overview and its footer link are removed');
 
 
 /* =============================================================================
@@ -668,7 +670,7 @@ DATA.competitions.forEach(c => {
   assert(fs.existsSync(path.join(ROOT, c.page)), `Competition ${c.id} page ${c.page} exists`);
 });
 
-/* homepage is data-driven: cards/schedule/explorer read from data.js */
+/* homepage is data-driven: competition cards read from data.js */
 assert(indexHtml.includes('id="homeCards"'), 'Homepage renders competition cards from data.js');
 assert(siteJs.includes('onlineCompetitions()') || siteJs.includes('function onlineCompetitions'), 'Homepage online strip is data-driven');
 assert(siteJs.includes('function eligibilityText'), 'site.js renders eligibility from the class range');
@@ -761,7 +763,7 @@ htmlFilesList.forEach(file => {
   const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
   assert(!html.includes('?v9') && !html.includes('?v10') && !html.includes('?v11'),
     `${file} has no stale ?v9/?v10/?v11 asset query`);
-  assert(html.includes(file === 'registration.html' ? 'style.css?v13' : 'style.css?v12') && html.includes('data.js?v12') && html.includes('site.js?v12'),
+  assert(html.includes(file === 'registration.html' ? 'style.css?v13' : 'style.css?v12') && html.includes('data.js?v12') && html.includes('site.js?v13'),
     `${file} loads the expected versioned assets`);
 });
 
